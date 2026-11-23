@@ -138,7 +138,7 @@
       registro: [p.conselho, p.registroNumero].filter(Boolean).join(" ") + (p.uf ? "/" + p.uf : ""),
       especialidade: p.especialidade || "",
       rodape: [linha1, linha2].filter(Boolean).join("\n"),
-      logo: salvo.logo || "", farmaciaOn: !!salvo.farmaciaOn, farmaciaId: salvo.farmaciaId || ""
+      logo: (/^data:image\/png;base64,[A-Za-z0-9+\/=]+$/.test(salvo.logo || "") ? salvo.logo : ""), farmaciaOn: !!salvo.farmaciaOn, farmaciaId: salvo.farmaciaId || ""
     };
     // Região: sem farmácia escolhida, sugere a unidade da mesma cidade do consultório (ou do mesmo estado)
     if (!S.cfg.farmaciaId && S.lojas.length) {
@@ -384,7 +384,7 @@
         return '<div class="afp-relbox"><p class="afp-fg">Relacionado a</p><div class="afp-tags">' + chips.join("") +
           '<button type="button" class="afp-tagchip afp-tag-lam" data-lamtag>' + esc(src.l.titulo) + "</button></div>" +
           (rel.length ? '<p class="afp-fg">Fórmulas relacionadas</p><div class="afp-rel">' + rel.map(function (r) {
-            return '<button type="button" class="afp-relit" data-relk="' + r.key + '"><b>' + esc(r.f.nome) + "</b><small>" + esc(r.l.titulo) + "</small></button>";
+            return '<button type="button" class="afp-relit" data-relk="' + esc(r.key) + '"><b>' + esc(r.f.nome) + "</b><small>" + esc(r.l.titulo) + "</small></button>";
           }).join("") + "</div>" : "") + "</div>";
       })() : "") +
       "</div>" +
@@ -618,7 +618,7 @@
       sel("tag", "Tag", topTags().map(function (t) { return [t[0], t[0] + " (" + t[1] + ")"]; }), S.f.tag) +
       sel("ordem", "Ordenar", [["rel", "Relevância"], ["az", "A–Z"], ["lamina", "Por lâmina"]], S.ordem).replace('<option value="">Todas</option>', "") +
       "</div>" +
-      (ativosF.length ? '<div class="afp-ativos">' + ativosF.map(function (a) { return '<button class="afp-fchip" data-rmf="' + a[0] + '">' + esc(a[1]) + ic("x", 14) + "</button>"; }).join("") +
+      (ativosF.length ? '<div class="afp-ativos">' + ativosF.map(function (a) { return '<button class="afp-fchip" data-rmf="' + esc(a[0]) + '">' + esc(a[1]) + ic("x", 14) + "</button>"; }).join("") +
         '<button class="afp-link" data-limpatudo>Limpar filtros</button></div>' : "") +
       "</div>" +
       '<p class="afp-count"><b>' + itens.length + "</b> fórmula" + (itens.length === 1 ? "" : "s") + (itens.length !== lista.length && !soMinhas ? " de " + lista.length : "") + "</p>" +
@@ -683,7 +683,7 @@
   function pagina(n, p) {
     var k = n + "-" + p;
     if (S.imgCache[k]) return Promise.resolve(S.imgCache[k]);
-    return api("?img=" + k).then(function (r) { if (!r.ok) throw 0; return r.blob(); }).then(function (b) { return (S.imgCache[k] = URL.createObjectURL(b)); });
+    return api("?img=" + encodeURIComponent(k)).then(function (r) { if (!r.ok) throw 0; return r.blob(); }).then(function (b) { return (S.imgCache[k] = URL.createObjectURL(b)); });
   }
   function viewLaminas(v) {
     var l = S.open && lamina(S.open);
@@ -695,7 +695,7 @@
         '</div><aside class="afp-lside"><h3>Fórmulas desta lâmina <small>' + (l.formulas || []).length + "</small></h3>" +
         '<div class="afp-list">' + (l.formulas || []).map(function (f, i) {
           var k = l.n + ":" + i, ds = doses(f);
-          return '<button class="afp-li' + (naReceita(k) ? " on" : "") + '" data-det="' + k + '"><span><b>' + esc(f.nome) + "</b><small>" + esc(ativos(f).slice(0, 3).join(" · ")) + (ds ? " — " + esc(ds) : "") + "</small></span>" + ic(naReceita(k) ? "ok" : "mais", 18) + "</button>";
+          return '<button class="afp-li' + (naReceita(k) ? " on" : "") + '" data-det="' + esc(k) + '"><span><b>' + esc(f.nome) + "</b><small>" + esc(ativos(f).slice(0, 3).join(" · ")) + (ds ? " — " + esc(ds) : "") + "</small></span>" + ic(naReceita(k) ? "ok" : "mais", 18) + "</button>";
         }).join("") + "</div>" +
         (l.contraindicacoes ? '<p class="afp-obs"><b>Contraindicações.</b> ' + esc(l.contraindicacoes) + "</p>" : "") + "</aside></div>";
       v.querySelector("[data-back]").addEventListener("click", function () { S.open = null; render(); });
@@ -708,7 +708,7 @@
     }
     v.innerHTML = head("Lâminas *técnicas*", "O material completo de cada linha, do jeito que foi aprovado.") +
       '<div class="afp-lcards">' + S.laminas.map(function (l) {
-        return '<button class="afp-lcard" data-l="' + l.n + '"><figure data-thumb="' + l.n + '"></figure><span class="afp-tag">' + esc(l.especialidade || "") + "</span><b>" + esc(l.titulo) + "</b><small>" + (l.formulas || []).length + " fórmulas · " + (l.paginas || 0) + " páginas</small></button>";
+        return '<button class="afp-lcard" data-l="' + esc(l.n) + '"><figure data-thumb="' + l.n + '"></figure><span class="afp-tag">' + esc(l.especialidade || "") + "</span><b>" + esc(l.titulo) + "</b><small>" + (l.formulas || []).length + " fórmulas · " + (l.paginas || 0) + " páginas</small></button>";
       }).join("") + "</div>";
     v.querySelectorAll("[data-l]").forEach(function (b) { b.addEventListener("click", function () { S.open = b.getAttribute("data-l"); render(); }); });
     v.querySelectorAll("[data-thumb]").forEach(function (fig) { pagina(fig.getAttribute("data-thumb"), 1).then(function (u) { fig.innerHTML = '<img alt="" src="' + u + '">'; }).catch(function () {}); });
@@ -804,7 +804,7 @@
       }).join("") + '</ul><button class="afp-ghost" data-more>' + ic("mais", 16) + " Adicionar fórmula</button></section>" +
       '<section class="afp-panel"><label class="afp-switch"><input type="checkbox" id="afp-farm"' + (S.cfg.farmaciaOn ? " checked" : "") + "><span></span>Sugerir farmácia de manipulação</label>" +
       '<select class="afp-in" id="afp-loja"' + (S.cfg.farmaciaOn ? "" : " disabled") + '><option value="">Escolha a unidade</option>' +
-      lojas.map(function (x) { return '<option value="' + x.id + '"' + (String(x.id) === String(S.cfg.farmaciaId) ? " selected" : "") + ">" + esc(x.estado + " — " + x.nome) + "</option>"; }).join("") + "</select>" +
+      lojas.map(function (x) { return '<option value="' + esc(x.id) + '"' + (String(x.id) === String(S.cfg.farmaciaId) ? " selected" : "") + ">" + esc(x.estado + " — " + x.nome) + "</option>"; }).join("") + "</select>" +
       '<p class="afp-hint">A receita informa que o paciente pode manipular onde preferir.</p></section>' +
       '<section class="afp-panel afp-sign"><div>' + ic("qr", 22) + '<span><b>Assinatura digital com QR</b><small>Em integração — a validação ICP-Brasil entra aqui.</small></span></div><button class="afp-ghost" disabled>Assinar</button></section>' +
       '<p class="afp-hint">Substâncias sujeitas a controle especial exigem receituário próprio (Portaria SVS/MS 344/98). Revise doses e posologia antes de emitir.</p>' +

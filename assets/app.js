@@ -1,0 +1,56 @@
+(function(){
+var DEMO=/[?&]demo=1/.test(location.search);
+var $=function(id){return document.getElementById(id)};
+var loginEl=$("pp-login"), appEl=$("pp-app"), msgEl=$("pp-msg");
+function msg(t,c){msgEl.className="pp-msg on "+c;msgEl.textContent=t;}
+function erro(code){
+  if(/invalid-credential|wrong-password|user-not-found/.test(code))return "E-mail ou senha incorretos.";
+  if(/too-many-requests/.test(code))return "Muitas tentativas. Aguarde alguns minutos.";
+  if(/user-disabled/.test(code))return "Este acesso foi desativado.";
+  return "Não foi possível entrar. Tente novamente.";
+}
+$("pp-eye").addEventListener("click",function(){var p=$("pp-pass"),s=p.type==="password";p.type=s?"text":"password";this.setAttribute("aria-label",s?"Ocultar senha":"Mostrar senha");this.style.color=s?"#4f46e5":"";});
+function abrirApp(getToken,access){
+  loginEl.classList.add("pp-hide"); appEl.classList.remove("pp-hide"); window.scrollTo(0,0);
+  AFPresc.mount($("afp-root"),getToken,access||{});
+}
+function abrirLogin(){
+  appEl.classList.add("pp-hide"); loginEl.classList.remove("pp-hide");
+  setTimeout(function(){var e=$("pp-email");try{e.focus({preventScroll:true})}catch(_){e.focus()} if(innerWidth<900)$("pp-card").scrollIntoView({block:"start",behavior:"smooth"});},200);
+}
+
+if(DEMO){
+  /* modo demonstração: dados fictícios, sem login */
+  var s=document.createElement("script"); s.src="assets/demo-dados.js";
+  s.onload=function(){
+    var of=window.fetch;
+    window.fetch=function(u){ if(String(u).indexOf("prescritor-cadastro")>-1) return Promise.resolve(new Response(JSON.stringify({ok:true,laminas:window.PP_DEMO,minhas:[],perfil:{nome:"Vinícius Gayer",conselho:"CRM",registroNumero:"000000",uf:"SP",especialidade:"Dermatologia",consultorioCompleto:true,endereco:"Av. Paulista",numero:"1000",bairro:"Bela Vista",cidade:"São Paulo",cep:"01310-100",telefone:"(11) 0000-0000",email:"demo@portal.com"}}),{status:200,headers:{"content-type":"application/json"}})); return of.apply(this,arguments); };
+    $("pa-sair").addEventListener("click",function(){location.href=location.pathname;});
+    abrirApp(function(){return Promise.resolve("demo")},{nome:"Vinícius Gayer"});
+  };
+  document.body.appendChild(s);
+  return;
+}
+
+firebase.initializeApp({apiKey:"AIzaSyAeag91E__CL4f-4pRnKgezvwEasEUnUOY",authDomain:"aformula-institucional.firebaseapp.com",projectId:"aformula-institucional",appId:"1:139838701463:web:9938229ebeed4c545c8ed2"});
+var auth=firebase.auth(), db=firebase.firestore();
+$("pa-sair").addEventListener("click",function(){try{["afp-receituario-v1","afp-receita-v1","afp-tour-v1"].forEach(function(k){localStorage.removeItem(k);});}catch(_){} auth.signOut();});
+$("pp-form").addEventListener("submit",function(e){
+  e.preventDefault(); var em=$("pp-email").value.trim(), ps=$("pp-pass").value;
+  if(!em||!ps)return msg("Preencha e-mail e senha.","err");
+  msg("Entrando…","ok");
+  auth.signInWithEmailAndPassword(em,ps).catch(function(err){msg(erro(err.code||""),"err");});
+});
+$("pp-forgot").addEventListener("click",function(e){
+  e.preventDefault(); var em=$("pp-email").value.trim();
+  if(!em)return msg("Digite seu e-mail acima primeiro.","err");
+  auth.sendPasswordResetEmail(em).then(function(){msg("Se esse e-mail tiver acesso, enviamos um link para redefinir a senha.","ok");}).catch(function(){msg("Se esse e-mail tiver acesso, enviamos um link para redefinir a senha.","ok");});
+});
+auth.onAuthStateChanged(function(user){
+  if(!user){ abrirLogin(); return; }
+  db.collection("prescriber_access").doc(user.email).get().then(function(d){
+    if(d.exists) abrirApp(function(){return user.getIdToken();},d.data()||{});
+    else { auth.signOut(); msg("Seu cadastro ainda não foi aprovado.","err"); }
+  }).catch(function(){ auth.signOut(); msg("Não foi possível verificar o acesso agora.","err"); });
+});
+})();

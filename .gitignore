@@ -6,3 +6,8 @@ logo/gpt-*
 _sessoes/
 
 .vercel
+.env*
+*.pem
+*.key
+node_modules/
+.DS_Store
