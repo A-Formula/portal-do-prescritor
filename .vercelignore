@@ -1,0 +1,7 @@
+logo/conceitos/
+logo/*.ai
+logo/*.jsx
+logo/*.png
+logo/gpt-*
+_sessoes/
+.env*
