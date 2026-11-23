@@ -4,3 +4,5 @@ logo/*.jsx
 logo/*.png
 logo/gpt-*
 _sessoes/
+
+.vercel
