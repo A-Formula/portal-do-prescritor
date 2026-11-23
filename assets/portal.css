@@ -1,0 +1,59 @@
+/* Portal do prescritor — identidade própria (tech médico) */
+:root{--p:#4f46e5;--p-d:#4338ca;--p-50:#eef2ff;--ink:#0f172a;--ink-2:#334155;--mute:#64748b;--line:#e2e8f0;--bg:#f8fafc;--card:#fff;--ok:#10b981}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:"Plus Jakarta Sans",system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;-webkit-font-smoothing:antialiased;min-height:100vh}
+body::before{content:"";position:fixed;inset:0;z-index:-1;background:radial-gradient(900px 500px at 85% -10%,rgba(99,102,241,.10),transparent 60%),radial-gradient(700px 400px at -10% 110%,rgba(16,185,129,.07),transparent 60%),linear-gradient(var(--bg),var(--bg));pointer-events:none}
+a{color:var(--p)}
+
+/* barra do topo */
+.pp-bar{position:sticky;top:0;z-index:50;height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(16px,4vw,40px);background:rgba(255,255,255,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.pp-logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+.pp-mark{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;box-shadow:0 6px 16px -6px rgba(79,70,229,.6)}
+.pp-name{font-weight:800;font-size:17px;letter-spacing:-.01em}
+.pp-name small{display:block;font-size:11px;font-weight:600;color:var(--mute);letter-spacing:.08em;text-transform:uppercase}
+.pp-help{font-size:14px;font-weight:600;color:var(--ink-2);text-decoration:none;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:#fff}
+
+/* login */
+.pp-login{min-height:calc(100vh - 68px);display:grid;grid-template-columns:1.05fr 1fr;align-items:center;gap:clamp(32px,6vw,90px);max-width:1180px;margin:0 auto;padding:clamp(32px,6vh,72px) clamp(16px,4vw,40px)}
+.pp-pill{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--p-d);background:var(--p-50);border:1px solid #e0e7ff;border-radius:999px;padding:6px 12px;margin-bottom:22px}
+.pp-pill i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px rgba(16,185,129,.18)}
+.pp-login h1{font-size:clamp(36px,4.6vw,60px);line-height:1.04;letter-spacing:-.035em;margin:0 0 18px;font-weight:800}
+.pp-login h1 span{background:linear-gradient(90deg,#4f46e5,#7c3aed);-webkit-background-clip:text;background-clip:text;color:transparent}
+.pp-lead{font-size:18px;line-height:1.6;color:var(--ink-2);margin:0 0 28px;max-width:46ch}
+.pp-feats{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.pp-feats li{display:flex;gap:12px;align-items:center;font-size:16px;color:var(--ink-2)}
+.pp-feats b{width:32px;height:32px;flex:none;border-radius:10px;display:grid;place-items:center;background:#fff;border:1px solid var(--line);color:var(--p)}
+.pp-card{background:#fff;border:1px solid var(--line);border-radius:24px;padding:clamp(24px,3vw,40px);box-shadow:0 1px 2px rgba(15,23,42,.04),0 30px 60px -30px rgba(15,23,42,.25)}
+.pp-card h2{margin:0 0 6px;font-size:26px;letter-spacing:-.02em}
+.pp-card p.sub{margin:0 0 24px;color:var(--mute);font-size:15px}
+.pp-field{display:block;margin-bottom:16px}
+.pp-field span{display:block;font-size:14px;font-weight:700;margin-bottom:7px;color:var(--ink-2)}
+.pp-in{width:100%;height:50px;border:1.5px solid var(--line);border-radius:14px;padding:0 16px;font:inherit;font-size:16px;background:#fff;color:var(--ink);outline:none;transition:border-color .2s,box-shadow .2s}
+.pp-in:focus{border-color:var(--p);box-shadow:0 0 0 4px rgba(79,70,229,.14)}
+.pp-pw{position:relative}
+.pp-pw .pp-in{padding-right:52px}
+.pp-eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;background:none;border-radius:10px;color:var(--mute);cursor:pointer;display:grid;place-items:center}
+.pp-eye:hover{background:var(--p-50);color:var(--p)}
+.pp-row{display:flex;justify-content:flex-end;margin:-4px 0 20px}
+.pp-row a{font-size:14px;font-weight:600;text-decoration:none}
+.pp-btn{width:100%;height:52px;border:0;border-radius:14px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;font:inherit;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 10px 24px -10px rgba(79,70,229,.7);transition:transform .15s,filter .15s}
+.pp-btn:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.pp-msg{display:none;margin:14px 0 0;padding:10px 14px;border-radius:12px;font-size:14px}
+.pp-msg.on{display:block}.pp-msg.err{background:#fef2f2;color:#b91c1c}.pp-msg.ok{background:#ecfdf5;color:#047857}
+.pp-foot{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);font-size:14px;color:var(--mute);text-align:center}
+@media(max-width:900px){.pp-login{grid-template-columns:1fr;min-height:0}.pp-intro{order:2}.pp-card{order:1}}
+
+/* área logada */
+.pp-app{max-width:1480px;margin:0 auto;padding:28px clamp(16px,3vw,40px) 64px}
+.pp-hide{display:none!important}
+#afp-root .afp-top{background:linear-gradient(120deg,#1e1b4b 0%,#312e81 55%,#4338ca 100%)!important}
+#afp-root .afp-top h1 em{font-style:normal;font-weight:800;background:linear-gradient(90deg,#c7d2fe,#a5f3fc);-webkit-background-clip:text;background-clip:text;color:transparent!important}
+#afp-root .afp-nav[aria-current="true"]{background:var(--p-50)}
+#afp-root .afp-nav[aria-current="true"] .afp-navic{background:var(--p);color:#fff}
+.afp-av{background:linear-gradient(135deg,#6366f1,#4338ca)!important}
+html,body{overflow-x:clip}
+#afp-root .afp-top{overflow:hidden}
+#afp-root .afp-vh h2 em,#afp-root h2 em{font-style:normal;font-weight:800;background:linear-gradient(90deg,#4f46e5,#7c3aed);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+.pp-mark-img{height:36px;width:auto;display:block}
