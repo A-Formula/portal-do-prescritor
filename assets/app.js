@@ -36,7 +36,7 @@ firebase.initializeApp({apiKey:"AIzaSyAeag91E__CL4f-4pRnKgezvwEasEUnUOY",authDom
 var auth=firebase.auth(), db=firebase.firestore();
 $("pa-sair").addEventListener("click",function(){try{["afp-receituario-v1","afp-receita-v1","afp-tour-v1"].forEach(function(k){localStorage.removeItem(k);});}catch(_){} auth.signOut();});
 $("pp-form").addEventListener("submit",function(e){
-  e.preventDefault(); var em=$("pp-email").value.trim(), ps=$("pp-pass").value;
+  e.preventDefault(); var em=$("pp-email").value.trim(), ps=$("pp-pass").value; if(em.toLowerCase()==="teste")em="teste.prescritor@aformulabr.com.br";
   if(!em||!ps)return msg("Preencha e-mail e senha.","err");
   msg("Entrando…","ok");
   auth.signInWithEmailAndPassword(em,ps).catch(function(err){msg(erro(err.code||""),"err");});
