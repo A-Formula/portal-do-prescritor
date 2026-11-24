@@ -9,6 +9,8 @@
   var esc = function (s) { return (s == null ? "" : String(s)).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
   var norm = function (s) { return (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); };
   var LS_CFG = "afp-receituario-v1", LS_RX = "afp-receita-v1", LS_TOUR = "afp-tour-v1";
+  // Fase de teste: tutorial em todo login. Depois da aprovação, trocar para false (volta a ser só no 1º acesso).
+  var TOUR_SEMPRE = true;
   function lsGet(k, d) { try { return JSON.parse(localStorage.getItem(k) || "null") || d; } catch (_) { return d; } }
   function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (_) { return false; } }
 
@@ -324,7 +326,7 @@
     var pf = S.el.querySelector("[data-perfil]"); if (pf) pf.addEventListener("click", function () { S.tab = "receituario"; S.open = null; render(); window.scrollTo({ top: S.el.getBoundingClientRect().top + scrollY - 90, behavior: "smooth" }); });
     var v = S.el.querySelector("#afp-view");
     ({ inicio: viewInicio, formulas: viewFormulas, minhas: viewMinhas, laminas: viewLaminas, prescrever: viewPrescrever, receituario: viewReceituario })[S.tab](v);
-    if (S.tab === "inicio" && !S.tourOn && !lsGet(LS_TOUR, false)) setTimeout(tour, 600);
+    if (S.tab === "inicio" && !S.tourOn && !S.tourVisto && (TOUR_SEMPRE || !lsGet(LS_TOUR, false))) { S.tourVisto = true; setTimeout(tour, 600); }
   }
   function head(t, p, extra) { t = t.replace(/\*(.+?)\*/g, "<em>$1</em>"); return '<header class="afp-vh"><div><h2>' + t + "</h2>" + (p ? "<p>" + p + "</p>" : "") + "</div>" + (extra || "") + "</header>"; }
 
