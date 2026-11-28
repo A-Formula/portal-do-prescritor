@@ -32,7 +32,8 @@
     print: '<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
     qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/>',
     voltar: '<path d="M15 18l-6-6 6-6"/>', loja: '<path d="M3 9l1.5-5h15L21 9M4 9v11h16V9M3 9h18M9 20v-6h6v6"/>',
-    upload: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/>'
+    upload: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/>',
+    paciente: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>'
   };
   function ic(n, sz) { return '<svg class="afp-ic" width="' + (sz || 20) + '" height="' + (sz || 20) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[n] + "</svg>"; }
 
@@ -69,7 +70,8 @@
   };
   var FOTO = { capsula: "produto-capsulas", gastro: "produto-capsulas", vegetal: "produto-capsulas", goma: "forma-goma", pirulito: "forma-pirulito",
     chocolate: "forma-chocolate", strip: "forma-filme", gel: "forma-gel", gotas: "forma-gotas", sache: "forma-sache", shot: "forma-shot",
-    spray: "forma-spray", sublingual: "forma-sublingual", xarope: "forma-xarope", cafe: "produto-cafe", creme: "derma-jar-2", comprimido: "forma-pastilha" };
+    // spray, sublingual, xarope, café, creme e comprimido: fotos não existem no repo (404) — usam o ícone desenhado
+  };
   function foto(n, sz) {
     if (!FOTO[n]) return '<span class="afp-ph afp-ph-ic" style="width:' + sz + 'px;height:' + sz + 'px">' + fic(n, Math.round(sz * .55)) + "</span>";
     return '<span class="afp-ph" style="width:' + sz + 'px;height:' + sz + 'px"><img alt="" src="assets/fotos/' + FOTO[n] + '-thumb.webp"></span>';
@@ -111,7 +113,7 @@
 
   /* ---------- montagem ---------- */
   function mount(el, getToken, access) {
-    S.el = el; S.getToken = getToken; S.access = access || {};
+    S.el = el; S.getToken = getToken; S.access = access || {}; S.pac = null; S.farm = null; S.pacId = null; S.farmId = "";
     el.innerHTML = "";
     // TRAVA: fora do piloto (403) ou com qualquer erro, o sistema some e a página fica exatamente como antes.
     function sair() { if (el.parentNode) el.parentNode.removeChild(el); }
@@ -142,12 +144,6 @@
       rodape: [linha1, linha2].filter(Boolean).join("\n"),
       logo: (/^data:image\/png;base64,[A-Za-z0-9+\/=]+$/.test(salvo.logo || "") ? salvo.logo : ""), farmaciaOn: !!salvo.farmaciaOn, farmaciaId: salvo.farmaciaId || ""
     };
-    // Região: sem farmácia escolhida, sugere a unidade da mesma cidade do consultório (ou do mesmo estado)
-    if (!S.cfg.farmaciaId && S.lojas.length) {
-      var mc = S.lojas.filter(function (l) { return norm(l.cidade) === norm(cid) && (!uf || l.estado === uf); })[0];
-      var me = S.lojas.filter(function (l) { return uf && l.estado === uf; })[0];
-      if (mc || me) S.cfg.farmaciaId = String((mc || me).id);
-    }
   }
 
   /* ---------- 2ª etapa do cadastro: consultório (obrigatória antes de usar) ---------- */
@@ -219,7 +215,7 @@
       ["formulas", "formulas", "Buscar uma fórmula", "Por nome, ativo ou condição."],
       ["minhas", "editar", "Criar do zero", "Monte e guarde as suas fórmulas."],
       ["laminas", "laminas", "Ler as lâminas", "Material técnico completo."],
-      ["prescrever", "prescrever", "Montar a receita", S.rx.length ? S.rx.length + (S.rx.length > 1 ? " fórmulas" : " fórmula") + " na receita." : "Paciente, farmácia e impressão."]
+      ["prescrever", "prescrever", "Montar a receita", S.rx.length ? S.rx.length + (S.rx.length > 1 ? " fórmulas" : " fórmula") + " na receita." : "Paciente, impressão e envio."]
     ];
     v.innerHTML = head("Seu *portal*", "Tudo o que você precisa para prescrever fórmulas magistrais, em um lugar só.",
         '<button class="afp-ghost" data-tour>' + ic("ok", 16) + " Ver tutorial</button>") +
@@ -235,23 +231,14 @@
     var rxAntes = S.rx.length, simulou = false;
     var wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
     var steps = [
-      { sel: ".afp-top", t: "Bem-vindo ao Portal do prescritor", d: "Em 1 minuto mostramos o essencial. Você pode pular quando quiser." },
-      { sel: ".afp-side nav", t: "O menu do portal", d: "Tudo fica aqui à esquerda. Vamos passar por cada item." },
-      { sel: '[data-tab="inicio"]', t: "Início", d: "Sua visão geral: números do portal, atalhos e este tutorial, quando quiser rever." },
-      { sel: '[data-tab="formulas"]', t: "Formulações", d: "Todas as fórmulas prontas, organizadas por condição. Busque por ativo, nome ou indicação." },
-      { sel: '[data-tab="minhas"]', t: "Minhas fórmulas", d: "As fórmulas que você cria do zero ou salva a partir de uma pronta. Ficam guardadas na sua conta." },
-      { sel: '[data-tab="laminas"]', t: "Lâminas técnicas", d: "O material técnico completo de cada condição, página por página, com as fórmulas de cada lâmina." },
-      { sel: '[data-tab="prescrever"]', t: "Prescrever", d: "Onde a receita é montada. O número ao lado mostra quantas fórmulas já estão nela." },
-      { sel: '[data-tab="receituario"]', t: "Meu receituário", d: "Seus dados, o seu logo e o rodapé que saem impressos em toda receita." },
-      { sel: ".afp-home-acts", t: "Atalhos", d: "As quatro tarefas mais comuns, a um clique." },
-      { go: "formulas", sel: ".afp-search", t: "Busque uma fórmula", d: "Digite um ativo, uma condição ou o nome. Os filtros refinam por forma e via." },
-      { sel: "#afp-view [data-det]", t: "Vamos simular uma prescrição", d: "Cada cartão é uma fórmula das lâminas técnicas. Vamos abrir esta." },
-      { act: function () { var c = document.querySelector("#afp-view [data-det]"); if (c) c.click(); }, sel: ".afp-dlg #afp-rows", t: "Ajuste à vontade", d: "Ativos e doses são editáveis. A fórmula original da lâmina não muda." },
-      { sel: ".afp-dlg [data-save]", t: "Adicione à receita", d: "Um clique e a fórmula entra na receita. Fazemos isso por você agora." },
-      { act: function () { var b = document.querySelector(".afp-dlg [data-save]"); if (b) { b.click(); simulou = S.rx.length > rxAntes; } }, go: "prescrever", sel: ".afp-cart", t: "Pronto, está na receita", d: "A fórmula entrou na receita. Aqui você revisa, edita ou remove cada item." },
-      { sel: "#afp-pac", t: "Paciente e farmácia", d: "Preencha o nome do paciente e, se quiser, sugira uma farmácia de manipulação. Ao lado, a prévia da receita com os seus dados e o seu logo." },
-      { sel: "#afp-print", t: "Imprima ou salve em PDF", d: "A receita vai direto para a impressora ou vira PDF." },
-      { sel: ".afp-conta", alt: ".afp-sair", t: "Seu perfil e a saída", d: "Edite os dados do consultório ou saia da conta por aqui. Pronto!" }
+      { sel: ".afp-top", t: "Bem-vindo ao Portal do prescritor", d: "Um tour rápido de 8 passos. Pule quando quiser (Esc)." },
+      { sel: ".afp-side nav", t: "Tudo fica neste menu", d: "Formulações, Meu receituário, Lâminas, Prescrever, Pacientes, Farmácias parceiras e o Modelo da receita." },
+      { go: "formulas", sel: ".afp-search", t: "Busque uma fórmula", d: "Por ativo, condição ou nome. Os filtros refinam por forma e via." },
+      { act: function () { var c = document.querySelector("#afp-view [data-det]"); if (c) c.click(); }, sel: ".afp-dlg #afp-rows", t: "Ajuste à vontade", d: "Ativos, doses, via e forma são editáveis. A fórmula original da lâmina não muda." },
+      { act: function () { var b = document.querySelector(".afp-dlg [data-save]"); if (b) { b.click(); simulou = true; } }, go: "prescrever", sel: ".afp-cart", t: "Pronto, está na receita", d: "Adicionamos por você. Aqui você revisa, edita ou remove cada item." },
+      { sel: "#afp-pac", t: "Paciente", d: "Escolha do cadastro ou digite o nome. Ao lado, a prévia com os seus dados e o seu logo." },
+      { sel: "#afp-envio", alt: "#afp-print", t: "Concluir", d: "Envie para uma farmácia parceira ou para o paciente (e-mail ou WhatsApp), imprima ou salve em PDF." },
+      { sel: ".afp-conta", alt: ".afp-sair", t: "Seu perfil", d: "Dados do consultório e saída da conta. Para rever este tour, use o Início. Pronto!" }
     ];
     var ov = document.createElement("div"); ov.className = "afp-tour";
     ov.innerHTML = '<div class="afp-tour-hole"></div><div class="afp-tour-tip" role="dialog" aria-live="polite"><span class="afp-tour-n"></span><b></b><p></p><div class="afp-tour-bt"><button type="button" class="afp-link" data-skip>Pular</button><button type="button" class="afp-btn" data-next>Próximo</button></div></div>';
@@ -266,33 +253,36 @@
       tip.style.cssText = "width:" + tw + "px;left:" + x + "px;top:" + y + "px";
     }
     function fim() {
-      removeEventListener("scroll", place, true); removeEventListener("resize", place);
+      removeEventListener("scroll", onScroll, true); removeEventListener("resize", onScroll); removeEventListener("keydown", onKey);
       ov.remove(); var m = document.querySelector(".afp-modal"); if (m) m.remove();
-      if (simulou) { S.rx.pop(); saveRx(); }
+      if (simulou && S.rx.length > rxAntes) { S.rx.length = rxAntes; saveRx(); }
       lsSet(LS_TOUR, true); S.tourOn = false; S.tab = "inicio"; render(); window.scrollTo({ top: 0, behavior: "smooth" });
     }
     function passo() {
       i++; if (i >= steps.length) return fim();
-      var st = steps[i], p = Promise.resolve();
-      if (st.act) p = p.then(function () { st.act(); return wait(350); });
-      if (st.go) p = p.then(function () { var m = document.querySelector(".afp-modal"); if (m) m.remove(); S.tab = st.go; render(); return wait(300); });
+      var st = steps[i], p = Promise.resolve(); ocupado = true;
+      if (st.act) p = p.then(function () { st.act(); return wait(180); });
+      if (st.go) p = p.then(function () { var m = document.querySelector(".afp-modal"); if (m) m.remove(); S.tab = st.go; render(); return wait(120); });
       p.then(function () {
         var vis = function (q) { var e = q && document.querySelector(q); return e && e.getClientRects().length ? e : null; };
         cur = vis(st.sel) || vis(st.alt);
         if (!cur) return passo();
-        if (!cur.closest(".afp-modal")) { var r = cur.getBoundingClientRect(); window.scrollTo({ top: Math.max(0, r.top + scrollY - Math.max(110, (innerHeight - r.height) / 2 - 60)), behavior: "smooth" }); }
-        else cur.scrollIntoView({ block: "center", behavior: "smooth" });
-        return wait(450).then(function () {
+        var r = cur.getBoundingClientRect(), dentro = r.top >= 70 && r.bottom <= innerHeight - 40;
+        if (!dentro) { if (!cur.closest(".afp-modal")) window.scrollTo({ top: Math.max(0, r.top + scrollY - Math.max(110, (innerHeight - r.height) / 2 - 60)), behavior: "smooth" }); else cur.scrollIntoView({ block: "center", behavior: "smooth" }); }
+        return wait(dentro ? 0 : 320).then(function () {
           tip.querySelector(".afp-tour-n").textContent = (i + 1) + " de " + steps.length;
           tip.querySelector("b").textContent = st.t; tip.querySelector("p").textContent = st.d;
           tip.querySelector("[data-next]").textContent = i === steps.length - 1 ? "Começar" : "Próximo";
-          place();
+          place(); ocupado = false;
         });
       });
     }
-    ov.querySelector("[data-next]").addEventListener("click", passo);
+    var ocupado = false;
+    ov.querySelector("[data-next]").addEventListener("click", function () { if (!ocupado) passo(); });
     ov.querySelector("[data-skip]").addEventListener("click", fim);
-    addEventListener("scroll", place, true); addEventListener("resize", place);
+    var raf = 0; function onScroll() { if (!raf) raf = requestAnimationFrame(function () { raf = 0; place(); }); }
+    function onKey(e) { if (e.key === "Escape") fim(); }
+    addEventListener("scroll", onScroll, { capture: true, passive: true }); addEventListener("resize", onScroll); addEventListener("keydown", onKey);
     passo();
   }
 
@@ -300,10 +290,12 @@
     var nav = [
       ["inicio", "inicio", "Início", "Visão geral"],
       ["formulas", "formulas", "Formulações", "Fórmulas por condição"],
-      ["minhas", "editar", "Minhas fórmulas", (S.minhas || []).length ? (S.minhas.length + " criada" + (S.minhas.length > 1 ? "s" : "")) : "Crie do zero"],
+      ["minhas", "editar", "Meu receituário", (S.minhas || []).length ? (S.minhas.length + " fórmula" + (S.minhas.length > 1 ? "s" : "") + " sua" + (S.minhas.length > 1 ? "s" : "")) : "Seus protocolos"],
       ["laminas", "laminas", "Lâminas técnicas", "Material completo"],
       ["prescrever", "prescrever", "Prescrever", S.rx.length ? S.rx.length + " na receita" : "Monte a receita"],
-      ["receituario", "receituario", "Meu receituário", "Logo, dados e rodapé"]
+      ["pacientes", "paciente", "Pacientes", pacientes().length ? pacientes().length + " cadastrado" + (pacientes().length > 1 ? "s" : "") : "Cadastro e histórico"],
+      ["farmacias", "loja", "Farmácias parceiras", farmacias().length ? farmacias().length + " cadastrada" + (farmacias().length > 1 ? "s" : "") : "Para enviar a receita"],
+      ["receituario", "receituario", "Modelo da receita", "Logo, dados e rodapé"]
     ];
     var nome = (S.cfg && S.cfg.nome) || S.access.nome || "";
     var top = '<header class="afp-top"><div><p class="afp-eyebrow">Portal do prescritor</p><h1>Olá, <em>' + esc(nome.split(" ").slice(0, 2).join(" ")) + "</em></h1>" +
@@ -325,7 +317,8 @@
     S.el.querySelectorAll("[data-sair]").forEach(function (sair) { sair.addEventListener("click", function () { var b = document.getElementById("pa-sair"); if (b) b.click(); }); });
     var pf = S.el.querySelector("[data-perfil]"); if (pf) pf.addEventListener("click", function () { S.tab = "receituario"; S.open = null; render(); window.scrollTo({ top: S.el.getBoundingClientRect().top + scrollY - 90, behavior: "smooth" }); });
     var v = S.el.querySelector("#afp-view");
-    ({ inicio: viewInicio, formulas: viewFormulas, minhas: viewMinhas, laminas: viewLaminas, prescrever: viewPrescrever, receituario: viewReceituario })[S.tab](v);
+    ({ inicio: viewInicio, formulas: viewFormulas, minhas: viewMinhas, laminas: viewLaminas, prescrever: viewPrescrever, pacientes: viewPacientes, farmacias: viewFarmacias, receituario: viewReceituario })[S.tab](v);
+    carrinho();
     if (S.tab === "inicio" && !S.tourOn && !S.tourVisto && (TOUR_SEMPRE || !lsGet(LS_TOUR, false))) { S.tourVisto = true; setTimeout(tour, 600); }
   }
   function head(t, p, extra) { t = t.replace(/\*(.+?)\*/g, "<em>$1</em>"); return '<header class="afp-vh"><div><h2>' + t + "</h2>" + (p ? "<p>" + p + "</p>" : "") + "</div>" + (extra || "") + "</header>"; }
@@ -377,6 +370,7 @@
       '<button class="afp-ghost" data-addrow>' + ic("mais", 16) + " Adicionar ativo</button>" +
       '<label class="afp-full"><span>Quantidade</span><input class="afp-in" data-f="quantidade" value="' + esc(f.quantidade) + '" placeholder="ex.: Fazer 30 doses"></label>' +
       '<label class="afp-full"><span>Posologia</span><textarea class="afp-in" data-f="posologia" rows="2">' + esc(f.posologia) + "</textarea></label>" +
+      '<div class="afp-pos" id="afp-pos"></div>' +
       (src && src.f.observacoes ? '<p class="afp-obs">' + esc(src.f.observacoes) + "</p>" : "") +
       (modo === "lamina" ? (function () {
         var o = src.f, chips = [];
@@ -393,7 +387,7 @@
       '<div class="afp-val" id="afp-val" aria-live="polite"></div>' +
       '<footer class="afp-dlg-f">' + (modo === "lamina" ? '<button class="afp-link" data-lam>' + ic("laminas", 16) + " Ver lâmina</button>" : "<span></span>") +
       '<div class="afp-dlg-fa">' + (item.src ? '<button class="afp-ghost" data-reset title="Voltar ao original">Redefinir</button>' : "") +
-      (modo === "minha" ? '<button class="afp-link afp-del" data-del>' + ic("lixo", 16) + " Excluir</button>" : "") + '<button class="afp-ghost" data-minha>' + ic("editar", 16) + (modo === "minha" ? " Atualizar minha fórmula" : " Salvar em Minhas fórmulas") + "</button>" +
+      (modo === "minha" ? '<button class="afp-link afp-del" data-del>' + ic("lixo", 16) + " Excluir</button>" : "") + '<button class="afp-ghost" data-minha>' + ic("editar", 16) + (modo === "minha" ? " Atualizar no meu receituário" : " Salvar no meu receituário") + "</button>" +
       '<button class="afp-btn" data-save>' + ic(idx != null ? "ok" : "mais", 18) + (idx != null ? " Salvar na receita" : " Adicionar à receita") + "</button></div></footer></div>";
     document.body.appendChild(d); document.body.classList.add("afp-lock");
     function close() { d.remove(); document.body.classList.remove("afp-lock"); document.removeEventListener("keydown", k); }
@@ -413,21 +407,43 @@
         '<div class="afp-forma-txt"><small>Forma farmacêutica</small><b>' + (esc(f.forma) || "Não informada na lâmina") + "</b>" + (f.via ? "<span>" + esc(viaLabel(f)) + "</span>" : "") + "</div>" +
         (mudou() ? '<button type="button" class="afp-link afp-reset" data-freset title="Voltar para a forma sugerida na lâmina">Redefinir</button>' : "") + '<button type="button" class="afp-ghost" data-ftog>' + (aberto ? "Fechar" : f.forma ? "Alterar" : "Escolher forma") + "</button></div>" +
         (aberto ? '<div class="afp-forma-pick"><div class="afp-two"><label><span>Forma (escreva ou escolha abaixo)</span><input class="afp-in" data-f2="forma" value="' + esc(f.forma) + '"></label>' +
-          '<label><span>Via</span><input class="afp-in" data-f2="via" value="' + esc(f.via) + '" placeholder="oral"></label></div>' +
+          '<label><span>Via de uso</span><select class="afp-in" data-f2="via"><option value="">Escolha a via</option>' + VIAS.filter(function (o) { return !(ehNutri() && grupoVia(o[0]) === "topica"); }).map(function (o) { return '<option value="' + o[0] + '"' + (grupoVia(f.via) && norm(f.via).indexOf(norm(o[0]).slice(0, 4)) === 0 ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") +
+          (f.via && !VIAS.some(function (o) { return norm(f.via).indexOf(norm(o[0]).slice(0, 4)) === 0; }) ? '<option selected value="' + esc(f.via) + '">' + esc(f.via) + "</option>" : "") + "</select></label></div>" +
+          (grupoVia(f.via) ? '<p class="afp-hint afp-viahint">' + ic("escudo", 14) + "Mostrando só formas de " + esc(GRUPO_NOME[grupoVia(f.via)] || "uso " + f.via) + ". Para outra forma, troque a via.</p>" : "") +
           FORMAS.map(function (g) {
-            return '<p class="afp-fg">' + esc(g.g) + '</p><div class="afp-fgrid">' + g.itens.map(function (i) {
+            var itens = g.itens.filter(function (i) { return (!grupoVia(f.via) || grupoVia(i[2]) === grupoVia(f.via)) && !(ehNutri() && grupoVia(i[2]) === "topica"); });
+            if (!itens.length) return "";
+            return '<p class="afp-fg">' + esc(g.g) + '</p><div class="afp-fgrid">' + itens.map(function (i) {
               return '<button type="button" class="afp-fopt" aria-pressed="' + (cur === i[0]) + '" data-fo="' + i[0] + '">' + foto(i[0], 52) + "<span>" + esc(i[1]) + "</span></button>";
             }).join("") + "</div>";
           }).join("") + "</div>" : "");
       var fr = box.querySelector("[data-freset]"); if (fr) fr.addEventListener("click", function () { f.forma = sug.forma; f.via = sug.via; aberto = false; formaUI(); });
       box.querySelector("[data-ftog]").addEventListener("click", function () { aberto = !aberto; formaUI(); });
-      box.querySelectorAll("[data-f2]").forEach(function (inp) { inp.addEventListener("change", function () { f[inp.getAttribute("data-f2")] = inp.value; formaUI(); }); });
+      box.querySelectorAll("[data-f2]").forEach(function (inp) { inp.addEventListener("change", function () {
+        var k = inp.getAttribute("data-f2"); f[k] = inp.value;
+        if (k === "via" && conflitoVia(f)) { f.forma = ""; aberto = true; }   // via nova não combina com a forma: obriga a escolher de novo
+        formaUI(); posUI();
+      }); });
       box.querySelectorAll("[data-fo]").forEach(function (b) { b.addEventListener("click", function () {
         var it = FORMA_LIST.filter(function (x) { return x.id === b.getAttribute("data-fo"); })[0];
-        f.forma = it.nome.replace(/\s*\(.*?\)/, ""); f.via = it.via; aberto = false; formaUI();
+        f.forma = it.nome.replace(/\s*\(.*?\)/, ""); if (!grupoVia(f.via) || grupoVia(f.via) !== grupoVia(it.via)) f.via = it.via; aberto = false; formaUI(); posUI();
       }); });
     }
     formaUI();
+    function posUI() {
+      var box = d.querySelector("#afp-pos"), sg = posSugestoes(f), ta = d.querySelector('[data-f="posologia"]');
+      box.innerHTML = '<span class="afp-pos-l">Posologia rápida</span>' +
+        sg.minhas.map(function (p, i) { return '<span class="afp-poschip minha"><button type="button" data-pos="' + esc(p) + '">' + esc(p) + '</button><button type="button" class="afp-posx" data-posx="' + i + '" aria-label="Remover atalho">' + ic("x", 12) + "</button></span>"; }).join("") +
+        sg.base.map(function (p) { return '<button type="button" class="afp-poschip" data-pos="' + esc(p) + '">' + esc(p) + "</button>"; }).join("") +
+        '<button type="button" class="afp-link" data-possave>' + ic("mais", 14) + " Salvar a posologia atual como atalho</button>";
+      box.querySelectorAll("[data-pos]").forEach(function (b) { b.addEventListener("click", function () { ta.value = b.getAttribute("data-pos"); f.posologia = ta.value; ta.classList.remove("afp-bad"); }); });
+      box.querySelectorAll("[data-posx]").forEach(function (b) { b.addEventListener("click", function () { var l = lsU(LS_POS, []); l.splice(+b.getAttribute("data-posx"), 1); lsUSet(LS_POS, l); posUI(); }); });
+      box.querySelector("[data-possave]").addEventListener("click", function () {
+        var t = (ta.value || "").trim(); if (t.length < 4) { ta.classList.add("afp-bad"); ta.focus(); return; }
+        var l = lsU(LS_POS, []); if (l.indexOf(t) < 0) { l.unshift(t); lsUSet(LS_POS, l.slice(0, 20)); } posUI(); toast("Posologia salva como atalho");
+      });
+    }
+    posUI();
     d.querySelectorAll("[data-f]").forEach(function (inp) { inp.addEventListener("input", function () { f[inp.getAttribute("data-f")] = inp.value; }); });
     d.querySelector("[data-addrow]").addEventListener("click", function () { f.componentes.push({ ativo: "", dose: "" }); d.querySelector("#afp-rows").innerHTML = rows(); wireRows(); var ins = d.querySelectorAll('[data-k="ativo"]'); ins[ins.length - 1].focus(); });
     d.addEventListener("click", function (e) { if (e.target === d || e.target.closest("[data-close]")) close(); });
@@ -440,6 +456,9 @@
       if (!(f.nome || "").trim() || f.nome.trim().length < 3) d.querySelector(".afp-title-in").classList.add("afp-bad");
       d.querySelectorAll('[data-k="dose"]').forEach(function (x) { if (!x.value.trim() && d.querySelector('[data-k="ativo"][data-i="' + x.getAttribute("data-i") + '"]').value.trim()) x.classList.add("afp-bad"); });
       ["quantidade", "posologia"].forEach(function (k) { var x = d.querySelector('[data-f="' + k + '"]'); if (x && !x.value.trim()) x.classList.add("afp-bad"); });
+      var fbox = d.querySelector("#afp-forma");
+      if (!(f.forma || "").trim() || conflitoVia(f)) { fbox.classList.add("afp-bad"); if (!aberto) { aberto = true; formaUI(); } fbox.scrollIntoView({ block: "center", behavior: "smooth" }); }
+      else fbox.classList.remove("afp-bad");
       if (v.erros.length) { box.innerHTML = '<div class="afp-val-err"><b>Antes de continuar:</b><ul>' + v.erros.map(function (e) { return "<li>" + esc(e) + "</li>"; }).join("") + "</ul></div>"; confirmado = ""; return false; }
       if (v.avisos.length && confirmado !== acao) {
         box.innerHTML = '<div class="afp-val-av"><b>Confira antes de seguir</b> (clique de novo para confirmar):<ul>' + v.avisos.map(function (e) { return "<li>" + esc(e) + "</li>"; }).join("") + "</ul></div>";
@@ -462,12 +481,12 @@
       var i = lista.map(function (x) { return x.id; }).indexOf(id);
       if (i > -1) lista[i] = reg; else { if (lista.length >= 300) { d.querySelector("#afp-val").innerHTML = '<div class="afp-val-err">Limite de 300 fórmulas próprias atingido.</div>'; return; } lista.unshift(reg); }
       var b = this; b.disabled = true;
-      salvarMinhas(lista).then(function () { close(); render(); toast(i > -1 ? "Minha fórmula atualizada" : "Salva em Minhas fórmulas"); })
+      salvarMinhas(lista).then(function () { close(); render(); toast(i > -1 ? "Atualizada no meu receituário" : "Salva no meu receituário"); })
         .catch(function () { b.disabled = false; d.querySelector("#afp-val").innerHTML = '<div class="afp-val-err">Não foi possível salvar agora. Tente de novo.</div>'; });
     });
     wireTags(d, close);
     var del = d.querySelector("[data-del]"); if (del) del.addEventListener("click", function () {
-      if (!confirm("Excluir esta fórmula de Minhas fórmulas?")) return;
+      if (!confirm("Excluir esta fórmula do meu receituário?")) return;
       salvarMinhas((S.minhas || []).filter(function (x) { return x.id !== item.src.slice(2); })).then(function () { close(); render(); toast("Fórmula excluída"); });
     });
     var lt = d.querySelector("[data-lamtag]"); if (lt) lt.addEventListener("click", function () { close(); S.tab = "laminas"; S.open = src.l.n; render(); });
@@ -497,7 +516,7 @@
 
   /* ---------- formulações: índice, busca e filtros ---------- */
   // Fonte única: fórmulas das lâminas + "Minhas fórmulas" (chave "m:<id>"). Índice normalizado montado 1x por mudança.
-  var MINHA_L = { n: "m", titulo: "Minhas fórmulas", especialidade: "Minhas fórmulas", condicoes: [] };
+  var MINHA_L = { n: "m", titulo: "Meu receituário", especialidade: "Meu receituário", condicoes: [] };
   var IDX = null;
   function invalidar() { IDX = null; }
   function todas() {
@@ -554,6 +573,7 @@
       if (S.f.forma && x.forma !== S.f.forma) return;
       if (S.f.via && x.via.indexOf(norm(S.f.via)) !== 0) return;
       if (S.f.tag && x.tags.indexOf(norm(S.f.tag)) < 0) return;
+      if (ehNutri() && grupoVia(x.via || (FORMA_LIST.filter(function (y) { return y.id === x.forma; })[0] || {}).via) === "topica") return;   // CRN não prescreve uso tópico
       var sc = termos.length ? pontuar(it, termos) : 1;
       if (sc) r.push({ it: it, sc: sc });
     });
@@ -602,7 +622,7 @@
         ops.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (val === o[0] ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join("") + "</select></label>";
     }
     v.innerHTML = (soMinhas
-        ? head("Minhas *fórmulas*", "Fórmulas criadas por você, ou variações salvas a partir das lâminas. Ficam guardadas na sua conta.",
+        ? head("Meu *receituário*", "Seus protocolos: fórmulas criadas por você ou variações salvas a partir das lâminas, com a sua posologia. Ficam guardadas na sua conta.",
             '<button class="afp-btn" data-nova>' + ic("mais", 18) + " Nova fórmula</button>")
         : head("Fórmulas por *condição*", "Busque por condição, ativo, tag ou nome. Combine filtros para chegar rápido na fórmula certa.",
             '<button class="afp-ghost" data-nova>' + ic("mais", 16) + " Criar fórmula</button>")) +
@@ -626,7 +646,7 @@
       '<p class="afp-count"><b>' + itens.length + "</b> fórmula" + (itens.length === 1 ? "" : "s") + (itens.length !== lista.length && !soMinhas ? " de " + lista.length : "") + "</p>" +
       '<div class="afp-grid">' + (vis.map(card).join("") ||
         (soMinhas && !nMinhas
-          ? '<div class="afp-emptybox">' + ic("editar", 32) + "<b>Você ainda não criou fórmulas</b><p>Crie do zero ou abra uma fórmula das lâminas, ajuste e use “Salvar em Minhas fórmulas”.</p>" + '<button class="afp-btn" data-nova>' + ic("mais", 18) + " Nova fórmula</button></div>"
+          ? '<div class="afp-emptybox">' + ic("editar", 32) + "<b>Você ainda não criou fórmulas</b><p>Crie do zero ou abra uma fórmula das lâminas, ajuste e use “Salvar no meu receituário”.</p>" + '<button class="afp-btn" data-nova>' + ic("mais", 18) + " Nova fórmula</button></div>"
           : '<div class="afp-emptybox">' + ic("busca", 30) + "<b>Nenhuma fórmula com esses critérios</b><p>Tente menos palavras, outro termo (ex.: o ativo ou a condição) ou limpe os filtros.</p>" + (ativosF.length ? '<button class="afp-ghost" data-limpatudo>Limpar filtros</button>' : "") + "</div>")) + "</div>" +
       (itens.length > vis.length ? '<div class="afp-mais"><button class="afp-ghost" data-mais>Mostrar mais ' + Math.min(48, itens.length - vis.length) + " de " + (itens.length - vis.length) + "</button></div>" : "");
     var inp = v.querySelector(".afp-search input"), tmr;
@@ -658,7 +678,9 @@
   function validar(f) {
     var erros = [], avisos = [], vistos = {};
     if ((f.nome || "").trim().length < 3) erros.push("Dê um nome à fórmula (mínimo 3 letras).");
-    if (!(f.forma || "").trim()) erros.push("Escolha a forma farmacêutica.");
+    if (!(f.forma || "").trim()) erros.push("Falta a forma farmacêutica: escolha uma no quadro “Forma farmacêutica” (destacado em vermelho acima dos ativos).");
+    else if (conflitoVia(f)) erros.push(conflitoVia(f));
+    if (ehNutri() && (grupoVia(f.via) === "topica" || (formaInfo(f.forma) && grupoVia(formaInfo(f.forma).via) === "topica"))) erros.push("Nutricionistas (CRN) não prescrevem fórmulas de uso tópico. Escolha uma forma de uso oral.");
     var comps = (f.componentes || []).filter(function (c) { return (c.ativo || "").trim(); });
     if (!comps.length) erros.push("Inclua pelo menos um ativo com dose.");
     comps.forEach(function (c) {
@@ -691,7 +713,7 @@
     var l = S.open && lamina(S.open);
     if (l) {
       v.innerHTML = '<button class="afp-link afp-back" data-back>' + ic("voltar", 16) + " Todas as lâminas</button>" +
-        head(esc(l.titulo), esc(l.resumo || "")) +
+        head(esc(l.titulo), esc(l.resumo || ""), '<button class="afp-ghost" data-baixar>' + ic("upload", 16) + " Baixar lâmina (PDF)</button>") +
         '<div class="afp-lgrid"><div class="afp-pages">' +
         Array.from({ length: l.paginas || 0 }, function (_, i) { return '<figure class="afp-page" data-p="' + (i + 1) + '"><span>Página ' + (i + 1) + "</span></figure>"; }).join("") +
         '</div><aside class="afp-lside"><h3>Fórmulas desta lâmina <small>' + (l.formulas || []).length + "</small></h3>" +
@@ -701,8 +723,13 @@
         }).join("") + "</div>" +
         (l.contraindicacoes ? '<p class="afp-obs"><b>Contraindicações.</b> ' + esc(l.contraindicacoes) + "</p>" : "") + "</aside></div>";
       v.querySelector("[data-back]").addEventListener("click", function () { S.open = null; render(); });
+      v.querySelector("[data-baixar]").addEventListener("click", function () { baixarLamina(l, this); });
       v.querySelectorAll(".afp-page").forEach(function (fig) {
-        pagina(l.n, fig.getAttribute("data-p")).then(function (u) { fig.innerHTML = '<img alt="' + esc(l.titulo) + " — página " + fig.getAttribute("data-p") + '" src="' + u + '">'; })
+        pagina(l.n, fig.getAttribute("data-p")).then(function (u) {
+          var alt = l.titulo + " — página " + fig.getAttribute("data-p");
+          fig.innerHTML = '<img alt="' + esc(alt) + '" src="' + u + '"><button type="button" class="afp-zbt" aria-label="Ampliar página">' + ic("busca", 16) + " Ampliar</button>";
+          fig.addEventListener("click", function () { ampliar(u, alt); });
+        })
           .catch(function () { fig.innerHTML = "<span>Página indisponível</span>"; });
       });
       wireCards(v);
@@ -735,15 +762,13 @@
       (f.posologia ? '<div class="rx-pos">' + posLabel(f.posologia) + "</div>" : "") + "</li>";
   }
   function folha(paciente, itens) {
-    var c = S.cfg, lj = c.farmaciaOn ? loja() : null;
+    var c = S.cfg;
     itens = itens || S.rx;
     var head = '<header class="rx-head"><div><div class="rx-nome">' + esc(c.nome) + '</div><div class="rx-reg">' + esc([c.registro, c.especialidade].filter(Boolean).join(" · ")) + "</div></div>" +
       (c.logo ? '<img class="rx-logo" alt="" src="' + c.logo + '">' : "") + "</header>" +
       '<div class="rx-pac"><span>Paciente: <b>' + (esc(paciente) || "&nbsp;") + "</b></span><span>" + hoje() + "</span></div>";
     var fim = '<div class="rx-end"><div class="rx-sign"><div class="rx-qr" title="Reservado para o QR de validação da assinatura digital">' + ic("qr", 34) + "<small>QR de validação<br>assinatura digital</small></div>" +
-      '<div class="rx-ass"><div class="rx-linha"></div><span>' + esc(c.nome) + (c.registro ? " · " + esc(c.registro) : "") + "</span></div></div>" +
-      (lj ? '<div class="rx-farm"><b>Sugestão de farmácia de manipulação:</b> ' + esc(lj.nome) + " — " + esc(lj.endereco || "") + (lj.telefone ? " · " + esc(lj.telefone) : "") +
-        "<br><small>Sugestão do prescritor. O paciente pode manipular esta receita na farmácia de sua escolha.</small></div>" : "") + "</div>";
+      '<div class="rx-ass"><div class="rx-linha"></div><span>' + esc(c.nome) + (c.registro ? " · " + esc(c.registro) : "") + "</span></div></div></div>";
     var foot = '<footer class="rx-foot"><span>' + esc(c.rodape) + '</span><span class="rx-pg"></span></footer>';
     function pagina() { var p = document.createElement("div"); p.className = "rx-sheet"; p.innerHTML = head + '<div class="rx-body"><ol class="rx-list"></ol></div>' + foot; return p; }
 
@@ -794,36 +819,35 @@
       v.querySelector("[data-go]").addEventListener("click", function () { S.tab = "formulas"; render(); });
       return;
     }
-    var lojas = S.lojas.slice().sort(function (a, b) { return (a.estado + a.nome).localeCompare(b.estado + b.nome); });
     v.innerHTML = head("Monte a *receita*", "Revise as fórmulas, preencha o paciente e gere a receita.", '<button class="afp-ghost" data-clear>' + ic("lixo", 16) + " Limpar receita</button>") +
       '<div class="afp-rxgrid"><div class="afp-rxctl">' +
-      '<section class="afp-panel"><label class="afp-full"><span>Paciente</span><input class="afp-in" id="afp-pac" autocomplete="off" placeholder="Nome do paciente" value="' + esc(S.paciente) + '"></label>' +
-      '<p class="afp-hint">' + ic("escudo", 14) + "O nome do paciente não é salvo nem enviado.</p></section>" +
+      painelPaciente() +
       '<section class="afp-panel"><h3>Fórmulas <small>' + S.rx.length + "</small></h3><ul class=\"afp-cart\">" + S.rx.map(function (f, i) {
         var ds = doses(f);
         return '<li><button class="afp-cart-main" data-edit="' + i + '"><b>' + esc(f.nome) + "</b><small>" + esc(ativos(f).slice(0, 3).join(" · ")) + (ds ? " — " + esc(ds) : "") + "</small></button>" +
           '<button class="afp-icbtn" data-edit="' + i + '" aria-label="Editar">' + ic("editar", 17) + '</button><button class="afp-icbtn" data-rm="' + i + '" aria-label="Remover">' + ic("lixo", 17) + "</button></li>";
       }).join("") + '</ul><button class="afp-ghost" data-more>' + ic("mais", 16) + " Adicionar fórmula</button></section>" +
-      '<section class="afp-panel"><label class="afp-switch"><input type="checkbox" id="afp-farm"' + (S.cfg.farmaciaOn ? " checked" : "") + "><span></span>Sugerir farmácia de manipulação</label>" +
-      '<select class="afp-in" id="afp-loja"' + (S.cfg.farmaciaOn ? "" : " disabled") + '><option value="">Escolha a unidade</option>' +
-      lojas.map(function (x) { return '<option value="' + esc(x.id) + '"' + (String(x.id) === String(S.cfg.farmaciaId) ? " selected" : "") + ">" + esc(x.estado + " — " + x.nome) + "</option>"; }).join("") + "</select>" +
-      '<p class="afp-hint">A receita informa que o paciente pode manipular onde preferir.</p></section>' +
       '<section class="afp-panel afp-sign"><div>' + ic("qr", 22) + '<span><b>Assinatura digital com QR</b><small>Em integração — a validação ICP-Brasil entra aqui.</small></span></div><button class="afp-ghost" disabled>Assinar</button></section>' +
       '<p class="afp-hint">Substâncias sujeitas a controle especial exigem receituário próprio (Portaria SVS/MS 344/98). Revise doses e posologia antes de emitir.</p>' +
       '<button class="afp-btn afp-btn-lg" id="afp-print">' + ic("print", 18) + " Imprimir / salvar PDF</button>" +
+      '<button class="afp-ghost afp-copy" id="afp-copy">' + ic("laminas", 16) + " Copiar receita (texto)</button>" +
+      painelEnvio() +
       '</div><div class="afp-rxprev" id="afp-prev">' + folha(S.paciente) + "</div></div>";
-    var pac = v.querySelector("#afp-pac"), prev = v.querySelector("#afp-prev");
-    pac.addEventListener("input", function () { S.paciente = pac.value; prev.innerHTML = folha(S.paciente); });
+    var prev = v.querySelector("#afp-prev");
+    wirePaciente(v, function () { prev.innerHTML = folha(S.paciente); });
+    wireEnvio(v);
+    v.querySelector("#afp-copy").addEventListener("click", function () {
+      var t = receitaTexto(), ok = function () { toast("Receita copiada. Cole no seu sistema."); };
+      if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(ok, copiaVelha); else copiaVelha();
+      function copiaVelha() { var a = document.createElement("textarea"); a.value = t; a.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(a); a.select(); try { document.execCommand("copy"); ok(); } catch (_) { toast("Não foi possível copiar"); } a.remove(); }
+    });
     v.querySelectorAll("[data-edit]").forEach(function (b) { b.addEventListener("click", function () { var i = +b.getAttribute("data-edit"); editor(S.rx[i], i); }); });
     v.querySelectorAll("[data-rm]").forEach(function (b) { b.addEventListener("click", function () { S.rx.splice(+b.getAttribute("data-rm"), 1); saveRx(); render(); }); });
     v.querySelector("[data-more]").addEventListener("click", function () { S.tab = "formulas"; render(); });
     v.querySelector("[data-clear]").addEventListener("click", function () { if (confirm("Remover todas as fórmulas da receita?")) { S.rx = []; saveRx(); render(); } });
-    var chk = v.querySelector("#afp-farm"), sel = v.querySelector("#afp-loja");
-    chk.addEventListener("change", function () { S.cfg.farmaciaOn = chk.checked; lsSet(LS_CFG, S.cfg); render(); });
-    sel.addEventListener("change", function () { S.cfg.farmaciaId = sel.value; lsSet(LS_CFG, S.cfg); prev.innerHTML = folha(S.paciente); });
     v.querySelector("#afp-print").addEventListener("click", function () {
       var w = document.getElementById("afp-print-root") || document.body.appendChild(Object.assign(document.createElement("div"), { id: "afp-print-root" }));
-      w.innerHTML = folha(S.paciente); imprimir();
+      w.innerHTML = folha(S.paciente); registrarReceita("impressa / PDF"); imprimir();
     });
   }
 
@@ -853,7 +877,7 @@
     var c = S.cfg, p = S.perfil;
     var exemplo = S.rx.length ? null : [{ nome: "Fórmula de exemplo", forma: "cápsula", via: "oral", componentes: [{ ativo: "Ativo A", dose: "100 mg" }, { ativo: "Ativo B", dose: "50 mg" }], quantidade: "Fazer 30 doses", posologia: "Tomar 1 dose ao dia." }];
     function linha(r, val) { return '<div class="afp-kv"><span>' + r + "</span><b>" + (esc(val) || "<i>não informado</i>") + "</b></div>"; }
-    v.innerHTML = head("Meu *receituário*", "É assim que sua receita sai. Os dados vêm do seu cadastro; aqui você só personaliza o logo.") +
+    v.innerHTML = head("Modelo da *receita*", "É assim que sua receita sai. Os dados vêm do seu cadastro; aqui você só personaliza o logo.") +
       '<div class="afp-rxgrid"><div class="afp-rxctl">' +
       '<section class="afp-panel"><h3>Logo</h3><div class="afp-logo">' + (c.logo ? '<img alt="Seu logo" src="' + c.logo + '">' : ic("upload", 26)) +
       '<div><button type="button" class="afp-ghost" id="afp-lbtn">' + ic("upload", 16) + (c.logo ? " Trocar logo" : " Enviar logo") + "</button>" +
@@ -873,7 +897,7 @@
     function aviso(t) { msgEl.className = "afp-msg on"; msgEl.textContent = t; }
     function upd() { prev.innerHTML = folha("Nome do paciente", exemplo || S.rx); }
     function save() {
-      var keep = { logo: S.cfg.logo, farmaciaOn: S.cfg.farmaciaOn, farmaciaId: S.cfg.farmaciaId };
+      var keep = { logo: S.cfg.logo };
       if (!lsSet(LS_CFG, keep)) aviso("Não foi possível salvar neste navegador (armazenamento cheio ou bloqueado).");
       upd();
     }
@@ -885,6 +909,448 @@
     });
     var rm = v.querySelector("#afp-lrm"); if (rm) rm.addEventListener("click", function () { S.cfg.logo = ""; save(); render(); });
     upd();
+  }
+
+  /* ======================================================================
+     Ajustes da reunião 27/11: pacientes, farmácias parceiras, envio,
+     carrinho, download/zoom das lâminas, posologias rápidas.
+     Pacientes e farmácias ficam SÓ neste navegador (por conta), como a receita.
+     ====================================================================== */
+  function uid() { return norm((S.perfil && S.perfil.email) || (S.access && S.access.email) || "local").replace(/[^a-z0-9@._-]/g, ""); }
+  function lsU(k, d) { return lsGet(k + ":" + uid(), d); }
+  function lsUSet(k, v) { return lsSet(k + ":" + uid(), v); }
+  var LS_PAC = "afp-pacientes-v1", LS_FARM = "afp-farmacias-v1", LS_POS = "afp-posologias-v1";
+  function pacientes() { return S.pac || (S.pac = lsU(LS_PAC, [])); }
+  function salvarPac() { if (!lsUSet(LS_PAC, S.pac)) toast("Não foi possível salvar neste navegador"); }
+  function farmacias() { return S.farm || (S.farm = lsU(LS_FARM, [])); }
+  function salvarFarm() { if (!lsUSet(LS_FARM, S.farm)) toast("Não foi possível salvar neste navegador"); }
+  function pacAtual() { return pacientes().filter(function (p) { return p.id === S.pacId; })[0] || null; }
+  function soDig(s) { return (s || "").replace(/\D/g, ""); }
+  function cpfFmt(s) { var d = soDig(s).slice(0, 11); return d.length === 11 ? d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : d; }
+  function cpfOk(s) {
+    var d = soDig(s); if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
+    for (var t = 9; t < 11; t++) { var sm = 0; for (var i = 0; i < t; i++) sm += +d[i] * (t + 1 - i); if (((sm * 10) % 11) % 10 !== +d[t]) return false; }
+    return true;
+  }
+  function telFmt(s) { var d = soDig(s); if (d.length === 13 && d.indexOf("55") === 0) d = d.slice(2); return d.length === 11 ? d.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3") : d.length === 10 ? d.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3") : s || ""; }
+  function emailOk(s) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s || ""); }
+  function dataBR(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ""); return m ? m[3] + "/" + m[2] + "/" + m[1] : iso || ""; }
+
+  /* ---------- via × forma farmacêutica (uso oral não mostra forma tópica e vice-versa) ---------- */
+  // Regra da reunião 27/11: nutricionista (CRN) não prescreve nada de uso tópico.
+  function ehNutri() { return /^crn/i.test(((S.perfil && S.perfil.conselho) || "").trim()); }
+  function grupoVia(v) {
+    v = norm(v); if (!v) return "";
+    if (/^(oral|sublingual|bucal)/.test(v)) return "oral";
+    if (/^(top|transderm|cutane|capilar|dermat)/.test(v)) return "topica";
+    if (/^vagin/.test(v)) return "vaginal";
+    if (/^oft/.test(v)) return "oftalmica";
+    return v;
+  }
+  var VIAS = [["oral", "Oral"], ["sublingual", "Sublingual"], ["tópica", "Tópica"], ["transdérmica", "Transdérmica"], ["vaginal", "Vaginal"], ["oftálmica", "Oftálmica"]];
+  var GRUPO_NOME = { oral: "uso oral", topica: "uso tópico", vaginal: "uso vaginal", oftalmica: "uso oftálmico" };
+  function formaInfo(txt) { var id = formaDe(txt); return id ? FORMA_LIST.filter(function (x) { return x.id === id; })[0] : null; }
+  function conflitoVia(f) {
+    var fi = formaInfo(f.forma), gv = grupoVia(f.via);
+    if (!fi || !gv) return "";
+    var gf = grupoVia(fi.via);
+    return gf && gf !== gv ? "“" + f.forma + "” é de " + GRUPO_NOME[gf] + " e esta fórmula está como " + (GRUPO_NOME[gv] || "uso " + f.via) + ". Troque a forma farmacêutica ou a via." : "";
+  }
+
+  /* ---------- posologias rápidas ---------- */
+  var POS_PADRAO = {
+    oral: ["Tomar 1 dose ao dia.", "Tomar 1 dose 2 vezes ao dia.", "Tomar 1 dose pela manhã, em jejum.", "Tomar 1 dose à noite, antes de dormir.", "Tomar 1 dose após as refeições."],
+    topica: ["Aplicar na área afetada 1 vez ao dia, à noite.", "Aplicar na área afetada 2 vezes ao dia.", "Aplicar no couro cabeludo 1 vez ao dia.", "Aplicar pela manhã, antes do protetor solar."],
+    "": ["Usar 1 vez ao dia.", "Usar 2 vezes ao dia."]
+  };
+  function posSugestoes(f) {
+    var g = grupoVia(f.via), base = POS_PADRAO[g] || POS_PADRAO[""], minhas = lsU(LS_POS, []);
+    return { minhas: minhas, base: base.filter(function (p) { return minhas.indexOf(p) < 0; }) };
+  }
+
+  /* ---------- modal genérico ---------- */
+  function modal(titulo, corpo, rodape, largura) {
+    var d = document.createElement("div"); d.className = "afp-modal";
+    d.innerHTML = '<div class="afp-dlg" role="dialog" aria-modal="true" aria-label="' + esc(titulo) + '"' + (largura ? ' style="width:min(' + largura + 'px,100%)"' : "") + ">" +
+      '<header class="afp-dlg-h"><div><h3 class="afp-dlg-t">' + esc(titulo) + '</h3></div><button class="afp-icbtn" data-close aria-label="Fechar">' + ic("x") + "</button></header>" +
+      '<div class="afp-dlg-b">' + corpo + "</div>" + (rodape ? '<footer class="afp-dlg-f">' + rodape + "</footer>" : "") + "</div>";
+    document.body.appendChild(d); document.body.classList.add("afp-lock");
+    function k(e) { if (e.key === "Escape") d.fechar(); }
+    d.fechar = function () { d.remove(); document.body.classList.remove("afp-lock"); document.removeEventListener("keydown", k); };
+    document.addEventListener("keydown", k);
+    d.addEventListener("click", function (e) { if (e.target === d || e.target.closest("[data-close]")) d.fechar(); });
+    return d;
+  }
+  function campo(id, rotulo, val, extra) { return '<label class="afp-full"><span>' + rotulo + '</span><input class="afp-in" id="' + id + '" value="' + esc(val || "") + '" ' + (extra || "") + "></label>"; }
+
+  /* ---------- pacientes ---------- */
+  function formPaciente(p, depois) {
+    var novo = !p; p = p || { id: novoId(), nome: "", cpf: "", nascimento: "", telefone: "", email: "", obs: "", historico: [] };
+    var d = modal(novo ? "Novo paciente" : "Editar paciente",
+      campo("pc-nome", "Nome completo *", p.nome, 'autocomplete="off"') +
+      '<div class="afp-two">' + campo("pc-cpf", "CPF", cpfFmt(p.cpf), 'inputmode="numeric" placeholder="000.000.000-00"') + campo("pc-nasc", "Data de nascimento", p.nascimento, 'type="date"') + "</div>" +
+      '<div class="afp-two">' + campo("pc-tel", "Telefone / WhatsApp", telFmt(p.telefone), 'type="tel" placeholder="(11) 90000-0000"') + campo("pc-mail", "E-mail", p.email, 'type="email" placeholder="paciente@email.com"') + "</div>" +
+      '<label class="afp-full"><span>Observações</span><textarea class="afp-in" id="pc-obs" rows="2" placeholder="Alergias, restrições…">' + esc(p.obs) + "</textarea></label>" +
+      '<p class="afp-hint">' + ic("escudo", 14) + "Os dados do paciente ficam só neste navegador. Nada é enviado ao portal.</p>" +
+      '<p class="afp-msg" id="pc-msg"></p>',
+      (novo ? "<span></span>" : '<button class="afp-link afp-del" data-del>' + ic("lixo", 16) + " Excluir</button>") +
+      '<div class="afp-dlg-fa"><button class="afp-ghost" data-close>Cancelar</button><button class="afp-btn" data-ok>' + ic("ok", 18) + " Salvar paciente</button></div>");
+    var g = function (id) { return d.querySelector("#" + id); };
+    g("pc-cpf").addEventListener("input", function () { this.value = cpfFmt(this.value); });
+    d.addEventListener("input", function (e) { e.target.classList && e.target.classList.remove("afp-bad"); });
+    d.querySelector("[data-ok]").addEventListener("click", function () {
+      var v = { nome: g("pc-nome").value.trim(), cpf: soDig(g("pc-cpf").value), nascimento: g("pc-nasc").value, telefone: soDig(g("pc-tel").value), email: g("pc-mail").value.trim(), obs: g("pc-obs").value.trim() };
+      var dup = v.cpf && pacientes().some(function (x) { return x.id !== p.id && x.cpf === v.cpf; });
+      var regras = [["pc-nome", v.nome.length >= 3, "Informe o nome do paciente."], ["pc-cpf", !v.cpf || cpfOk(v.cpf), "CPF inválido."], ["pc-cpf", !dup, "Já existe um paciente com este CPF."],
+        ["pc-tel", !v.telefone || v.telefone.length >= 10, "Telefone incompleto (com DDD)."], ["pc-mail", !v.email || emailOk(v.email), "E-mail inválido."]];
+      var ruim = regras.filter(function (r) { return !r[1]; });
+      ruim.forEach(function (r) { g(r[0]).classList.add("afp-bad"); });
+      if (ruim.length) { var m = g("pc-msg"); m.className = "afp-msg on"; m.textContent = ruim.map(function (r) { return r[2]; }).join(" "); return; }
+      Object.assign(p, v);
+      var l = pacientes(), i = l.map(function (x) { return x.id; }).indexOf(p.id);
+      if (i > -1) l[i] = p; else l.unshift(p);
+      salvarPac(); d.fechar(); toast(novo ? "Paciente cadastrado" : "Paciente atualizado");
+      if (depois) depois(p); else render();
+    });
+    var del = d.querySelector("[data-del]"); if (del) del.addEventListener("click", function () {
+      if (!confirm("Excluir " + p.nome + " e o histórico de receitas dele?")) return;
+      S.pac = pacientes().filter(function (x) { return x.id !== p.id; }); if (S.pacId === p.id) S.pacId = null;
+      salvarPac(); d.fechar(); render(); toast("Paciente excluído");
+    });
+    g("pc-nome").focus();
+  }
+  function viewPacientes(v) {
+    var q = norm(S.qPac || ""), l = pacientes().filter(function (p) { return !q || norm(p.nome).indexOf(q) > -1 || soDig(p.cpf).indexOf(soDig(q) || "§") > -1 || norm(p.email).indexOf(q) > -1; })
+      .sort(function (a, b) { return a.nome.localeCompare(b.nome); });
+    v.innerHTML = head("Meus *pacientes*", "Cadastro básico e o histórico das receitas de cada paciente.",
+        '<div class="afp-hbts"><button class="afp-ghost" data-imp>' + ic("upload", 16) + ' Importar planilha</button><button class="afp-btn" data-novo>' + ic("mais", 18) + " Novo paciente</button></div>") +
+      (pacientes().length ? '<div class="afp-tools"><label class="afp-search">' + ic("busca", 18) + '<input type="search" id="afp-qpac" autocomplete="off" placeholder="Buscar por nome, CPF ou e-mail" value="' + esc(S.qPac || "") + '"></label></div>' +
+        '<p class="afp-count"><b>' + l.length + "</b> paciente" + (l.length === 1 ? "" : "s") + "</p>" : "") +
+      (l.length ? '<div class="afp-plist">' + l.map(function (p) {
+        var h = p.historico || [], aberto = S.pacOpen === p.id;
+        return '<article class="afp-pcard' + (aberto ? " on" : "") + '"><div class="afp-pcard-h"><span class="afp-av">' + esc(p.nome.split(" ").filter(Boolean).slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase(); }).join("")) + "</span>" +
+          '<div class="afp-pcard-id"><b>' + esc(p.nome) + "</b><small>" + esc([p.cpf ? "CPF " + cpfFmt(p.cpf) : "", p.nascimento ? "Nasc. " + dataBR(p.nascimento) : ""].filter(Boolean).join(" · ") || "Sem CPF") + "</small>" +
+          "<small>" + esc([telFmt(p.telefone), p.email].filter(Boolean).join(" · ")) + "</small></div>" +
+          '<div class="afp-pcard-a"><button class="afp-ghost" data-hist="' + p.id + '">' + ic("laminas", 16) + " Histórico (" + h.length + ")</button>" +
+          '<button class="afp-icbtn" data-edp="' + p.id + '" aria-label="Editar paciente">' + ic("editar", 17) + "</button>" +
+          '<button class="afp-btn" data-rxp="' + p.id + '">' + ic("prescrever", 16) + " Prescrever</button></div></div>" +
+          (aberto ? '<div class="afp-hist">' + (h.length ? h.map(function (r, i) {
+            return '<div class="afp-hist-it"><div><b>' + esc(dataBR(r.data)) + "</b><small>" + esc((r.itens || []).map(function (f) { return f.nome; }).join(" · ")) + "</small>" +
+              (r.envios && r.envios.length ? '<small class="afp-env">' + esc(r.envios.join(" · ")) + "</small>" : "") + "</div>" +
+              '<button class="afp-ghost" data-rep="' + p.id + ":" + i + '">' + ic("mais", 16) + " Repetir receita</button></div>";
+          }).join("") : '<p class="afp-hint">Nenhuma receita emitida para este paciente ainda. Ao imprimir ou enviar uma receita, ela entra aqui.</p>') + "</div>" : "") + "</article>";
+      }).join("") + "</div>"
+        : '<div class="afp-emptybox">' + ic("receituario", 34) + "<b>" + (pacientes().length ? "Nenhum paciente com essa busca" : "Nenhum paciente cadastrado") + "</b>" +
+          "<p>Cadastre com nome, CPF, telefone e e-mail, ou importe a planilha do sistema da sua clínica (CSV ou Excel).</p></div>") +
+      '<p class="afp-hint">' + ic("escudo", 14) + "Os dados dos pacientes ficam só neste navegador, ligados à sua conta. Em outro computador, importe a planilha de novo.</p>";
+    var qi = v.querySelector("#afp-qpac"), tm;
+    if (qi) qi.addEventListener("input", function () { clearTimeout(tm); tm = setTimeout(function () { S.qPac = qi.value; var p = qi.selectionStart; render(); var n = S.el.querySelector("#afp-qpac"); n.focus(); n.setSelectionRange(p, p); }, 160); });
+    v.querySelectorAll("[data-novo]").forEach(function (b) { b.addEventListener("click", function () { formPaciente(null); }); });
+    v.querySelector("[data-imp]").addEventListener("click", importarPlanilha);
+    v.querySelectorAll("[data-edp]").forEach(function (b) { b.addEventListener("click", function () { formPaciente(pacientes().filter(function (x) { return x.id === b.getAttribute("data-edp"); })[0]); }); });
+    v.querySelectorAll("[data-hist]").forEach(function (b) { b.addEventListener("click", function () { var id = b.getAttribute("data-hist"); S.pacOpen = S.pacOpen === id ? null : id; render(); }); });
+    v.querySelectorAll("[data-rxp]").forEach(function (b) { b.addEventListener("click", function () { S.pacId = b.getAttribute("data-rxp"); S.paciente = (pacAtual() || {}).nome || ""; irPara(S.rx.length ? "prescrever" : "formulas"); if (!S.rx.length) toast("Escolha as fórmulas para " + S.paciente.split(" ")[0]); }); });
+    v.querySelectorAll("[data-rep]").forEach(function (b) { b.addEventListener("click", function () {
+      var x = b.getAttribute("data-rep").split(":"), p = pacientes().filter(function (y) { return y.id === x[0]; })[0], r = p && p.historico[+x[1]];
+      if (!r) return;
+      if (S.rx.length && !confirm("A receita atual tem " + S.rx.length + " fórmula(s). Substituir pela receita de " + dataBR(r.data) + "?")) return;
+      S.rx = JSON.parse(JSON.stringify(r.itens)); saveRx(); S.pacId = p.id; S.paciente = p.nome; irPara("prescrever"); toast("Receita carregada");
+    }); });
+  }
+  // histórico: 1 registro por receita emitida (impressa ou enviada). Mesma receita no mesmo dia só acrescenta o envio.
+  function registrarReceita(envio) {
+    var p = pacAtual(); if (!p || !S.rx.length) return;
+    var hoje = new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10), assin = JSON.stringify(S.rx);
+    p.historico = p.historico || [];
+    var r = p.historico.filter(function (x) { return x.data === hoje && JSON.stringify(x.itens) === assin; })[0];
+    if (!r) { r = { data: hoje, itens: JSON.parse(assin), envios: [] }; p.historico.unshift(r); if (p.historico.length > 100) p.historico.length = 100; }
+    if (envio && r.envios.indexOf(envio) < 0) r.envios.push(envio);
+    salvarPac();
+  }
+
+  /* ---------- importação de planilha (CSV ou Excel), com de-para de colunas ---------- */
+  var CAMPOS_PAC = [["", "Ignorar"], ["nome", "Nome"], ["cpf", "CPF"], ["nascimento", "Nascimento"], ["telefone", "Telefone"], ["email", "E-mail"], ["obs", "Observações"]];
+  function adivinhar(h) {
+    h = norm(h);
+    if (/cpf|documento/.test(h)) return "cpf";
+    if (/mail/.test(h)) return "email";
+    if (/nasc|aniver|data de nasc|dt_?nasc/.test(h)) return "nascimento";
+    if (/fone|celular|whats|tel\b|telefone|contato/.test(h)) return "telefone";
+    if (/^nome|paciente|cliente|nome completo/.test(h)) return "nome";
+    if (/obs|nota|alerg/.test(h)) return "obs";
+    return "";
+  }
+  function lerCSV(txt) {
+    txt = txt.replace(/^﻿/, "");
+    var l1 = txt.split(/\r?\n/)[0] || "", sep = [";", ",", "\t"].sort(function (a, b) { return l1.split(b).length - l1.split(a).length; })[0];
+    var rows = [], row = [], cel = "", q = false;
+    for (var i = 0; i < txt.length; i++) {
+      var c = txt[i];
+      if (q) { if (c === '"') { if (txt[i + 1] === '"') { cel += '"'; i++; } else q = false; } else cel += c; }
+      else if (c === '"') q = true;
+      else if (c === sep) { row.push(cel); cel = ""; }
+      else if (c === "\n" || c === "\r") { if (c === "\r" && txt[i + 1] === "\n") i++; row.push(cel); rows.push(row); row = []; cel = ""; }
+      else cel += c;
+    }
+    if (cel || row.length) { row.push(cel); rows.push(row); }
+    return rows;
+  }
+  // .xlsx = zip de XML. Leitor mínimo (sem biblioteca): diretório central + inflate nativo do navegador.
+  function lerXLSX(buf) {
+    var dv = new DataView(buf), u8 = new Uint8Array(buf), td = new TextDecoder(), e = -1;
+    for (var i = u8.length - 22; i >= Math.max(0, u8.length - 66000); i--) if (dv.getUint32(i, true) === 0x06054b50) { e = i; break; }
+    if (e < 0) return Promise.reject("Arquivo Excel inválido.");
+    var n = dv.getUint16(e + 10, true), off = dv.getUint32(e + 16, true), arq = {};
+    for (var k = 0; k < n; k++) {
+      var nl = dv.getUint16(off + 28, true), el = dv.getUint16(off + 30, true), cl = dv.getUint16(off + 32, true);
+      arq[td.decode(u8.subarray(off + 46, off + 46 + nl))] = { m: dv.getUint16(off + 10, true), csz: dv.getUint32(off + 20, true), lo: dv.getUint32(off + 42, true) };
+      off += 46 + nl + el + cl;
+    }
+    function ler(nome) {
+      var f = arq[nome]; if (!f) return Promise.resolve("");
+      var s = f.lo + 30 + dv.getUint16(f.lo + 26, true) + dv.getUint16(f.lo + 28, true), dado = u8.slice(s, s + f.csz);
+      if (f.m === 0) return Promise.resolve(td.decode(dado));
+      if (typeof DecompressionStream === "undefined") return Promise.reject("Este navegador não abre Excel. Salve a planilha como CSV e importe de novo.");
+      return new Response(new Blob([dado]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text();
+    }
+    var aba = Object.keys(arq).filter(function (x) { return /^xl\/worksheets\/sheet\d+\.xml$/.test(x); }).sort(function (a, b) { return parseInt(a.replace(/\D/g, "")) - parseInt(b.replace(/\D/g, "")); })[0];
+    if (!aba) return Promise.reject("Não achei nenhuma aba na planilha.");
+    return Promise.all([ler("xl/sharedStrings.xml"), ler(aba)]).then(function (x) {
+      var dp = new DOMParser(), ss = [], xs = x[0] ? dp.parseFromString(x[0], "application/xml") : null;
+      if (xs) Array.prototype.forEach.call(xs.getElementsByTagName("si"), function (si) { ss.push(Array.prototype.map.call(si.getElementsByTagName("t"), function (t) { return t.textContent; }).join("")); });
+      var doc = dp.parseFromString(x[1], "application/xml"), rows = [];
+      Array.prototype.forEach.call(doc.getElementsByTagName("row"), function (r) {
+        var linha = [];
+        Array.prototype.forEach.call(r.getElementsByTagName("c"), function (c) {
+          var ref = (c.getAttribute("r") || "").replace(/\d+/g, ""), col = 0;
+          for (var j = 0; j < ref.length; j++) col = col * 26 + ref.charCodeAt(j) - 64;
+          var t = c.getAttribute("t"), vv = c.getElementsByTagName("v")[0], val = vv ? vv.textContent : "";
+          if (t === "s") val = ss[+val] || "";
+          else if (t === "inlineStr") val = Array.prototype.map.call(c.getElementsByTagName("t"), function (z) { return z.textContent; }).join("");
+          linha[(col || linha.length + 1) - 1] = val;
+        });
+        for (var q2 = 0; q2 < linha.length; q2++) if (linha[q2] == null) linha[q2] = "";
+        rows.push(linha);
+      });
+      return rows;
+    });
+  }
+  function dataISO(v) {
+    v = String(v || "").trim(); if (!v) return "";
+    if (/^\d{5}(\.\d+)?$/.test(v)) return new Date(Date.UTC(1899, 11, 30) + Math.floor(+v) * 864e5).toISOString().slice(0, 10);   // número de série do Excel
+    var m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/.exec(v);
+    if (m) { var a = +m[3]; if (a < 100) a += a > 30 ? 1900 : 2000; return a + "-" + ("0" + m[2]).slice(-2) + "-" + ("0" + m[1]).slice(-2); }
+    return /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : "";
+  }
+  function importarPlanilha() {
+    var d = modal("Importar pacientes",
+      '<p class="afp-ind">Exporte a lista de pacientes do sistema da sua clínica em <b>CSV</b> ou <b>Excel (.xlsx)</b>. Qualquer modelo serve: no próximo passo você diz o que é cada coluna.</p>' +
+      '<label class="afp-drop"><input type="file" id="imp-f" accept=".csv,.txt,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">' + ic("upload", 26) + "<b>Escolher planilha</b><small>CSV ou XLSX · a primeira linha deve ser o cabeçalho</small></label>" +
+      '<div id="imp-map"></div><p class="afp-msg" id="imp-msg"></p>',
+      '<span></span><div class="afp-dlg-fa"><button class="afp-ghost" data-close>Cancelar</button><button class="afp-btn" data-ok disabled>' + ic("ok", 18) + " Importar</button></div>", 760);
+    var rows = null, mapa = [], msg = d.querySelector("#imp-msg"), ok = d.querySelector("[data-ok]");
+    function erro(t) { msg.className = "afp-msg on"; msg.textContent = t; }
+    d.querySelector("#imp-f").addEventListener("change", function () {
+      var f = this.files[0]; msg.className = "afp-msg"; if (!f) return;
+      if (f.size > 15 * 1024 * 1024) return erro("Arquivo muito grande (máx. 15 MB).");
+      var p = /\.xlsx$/i.test(f.name) ? f.arrayBuffer().then(lerXLSX) : f.arrayBuffer().then(function (b) {
+        var t = new TextDecoder("utf-8").decode(b); if (t.indexOf("�") > -1) t = new TextDecoder("windows-1252").decode(b); return lerCSV(t);
+      });
+      p.then(function (r) {
+        r = r.filter(function (l) { return l.some(function (c) { return String(c).trim(); }); });
+        if (r.length < 2) return erro("A planilha precisa de um cabeçalho e pelo menos um paciente.");
+        rows = r; mapa = r[0].map(function (h) { return adivinhar(h); });
+        var usados = {}; mapa = mapa.map(function (m) { if (m && usados[m]) return ""; usados[m] = 1; return m; });
+        desenhar();
+      }).catch(function (e) { erro(typeof e === "string" ? e : "Não foi possível ler esse arquivo."); });
+    });
+    function desenhar() {
+      var cab = rows[0], ex = rows.slice(1, 4);
+      d.querySelector("#imp-map").innerHTML = '<p class="afp-fg">' + (rows.length - 1) + " linhas encontradas · diga o que é cada coluna</p>" +
+        '<div class="afp-map">' + cab.map(function (h, i) {
+          return '<div class="afp-map-r"><div><b>' + esc(h || "Coluna " + (i + 1)) + "</b><small>" + esc(ex.map(function (l) { return l[i] || ""; }).filter(Boolean).slice(0, 2).join(" · ") || "vazio") + "</small></div>" +
+            '<select class="afp-in" data-col="' + i + '">' + CAMPOS_PAC.map(function (c) { return '<option value="' + c[0] + '"' + (mapa[i] === c[0] ? " selected" : "") + ">" + c[1] + "</option>"; }).join("") + "</select></div>";
+        }).join("") + "</div>";
+      d.querySelectorAll("[data-col]").forEach(function (s) { s.addEventListener("change", function () { mapa[+s.getAttribute("data-col")] = s.value; checar(); }); });
+      checar();
+    }
+    function checar() { var temNome = mapa.indexOf("nome") > -1; ok.disabled = !temNome; if (!temNome) erro("Indique qual coluna é o Nome."); else msg.className = "afp-msg"; }
+    ok.addEventListener("click", function () {
+      var l = pacientes(), cpfs = {}, chaves = {}, novos = 0, iguais = 0, semNome = 0;
+      l.forEach(function (p) { if (p.cpf) cpfs[p.cpf] = 1; chaves[norm(p.nome) + "|" + p.telefone] = 1; });
+      rows.slice(1).forEach(function (r) {
+        var p = { id: novoId(), nome: "", cpf: "", nascimento: "", telefone: "", email: "", obs: "", historico: [] };
+        mapa.forEach(function (m, i) {
+          if (!m) return; var v = String(r[i] == null ? "" : r[i]).trim(); if (!v) return;
+          if (m === "cpf") { var dg = soDig(v); p.cpf = dg.length && dg.length < 11 ? ("00000000000" + dg).slice(-11) : dg; }
+          else if (m === "telefone") p.telefone = soDig(v).replace(/^55(?=\d{10,11}$)/, "");
+          else if (m === "nascimento") p.nascimento = dataISO(v);
+          else if (m === "obs") p.obs = p.obs ? p.obs + " · " + v : v;
+          else p[m] = p[m] || v;
+        });
+        if (p.nome.length < 2) { semNome++; return; }
+        if (p.cpf && !cpfOk(p.cpf)) p.cpf = "";
+        if (p.email && !emailOk(p.email)) p.email = "";
+        var ch = norm(p.nome) + "|" + p.telefone;
+        if ((p.cpf && cpfs[p.cpf]) || chaves[ch]) { iguais++; return; }
+        if (p.cpf) cpfs[p.cpf] = 1; chaves[ch] = 1; l.push(p); novos++;
+      });
+      salvarPac(); d.fechar(); render();
+      toast(novos + " paciente" + (novos === 1 ? "" : "s") + " importado" + (novos === 1 ? "" : "s"));
+      if (iguais || semNome) setTimeout(function () { alert(novos + " importados." + (iguais ? "\n" + iguais + " já estavam cadastrados (mesmo CPF ou nome+telefone)." : "") + (semNome ? "\n" + semNome + " linhas sem nome foram ignoradas." : "")); }, 300);
+    });
+  }
+
+  /* ---------- farmácias parceiras ---------- */
+  function formFarmacia(f, depois) {
+    var novo = !f; f = f || { id: novoId(), nome: "", email: "", whatsapp: "", cidade: "", obs: "" };
+    var d = modal(novo ? "Nova farmácia parceira" : "Editar farmácia",
+      campo("fa-nome", "Nome da farmácia *", f.nome, 'placeholder="Ex.: A Fórmula — Moema"') +
+      '<div class="afp-two">' + campo("fa-mail", "E-mail para receber receitas *", f.email, 'type="email" placeholder="receitas@farmacia.com.br"') + campo("fa-zap", "WhatsApp", telFmt(f.whatsapp), 'type="tel" placeholder="(11) 90000-0000"') + "</div>" +
+      campo("fa-cid", "Cidade / bairro", f.cidade) +
+      '<p class="afp-hint">' + ic("escudo", 14) + "A farmácia nunca sai impressa na receita (regra sanitária). Ela só aparece na hora de enviar, e você escolhe se envia.</p>" +
+      '<p class="afp-msg" id="fa-msg"></p>',
+      (novo ? "<span></span>" : '<button class="afp-link afp-del" data-del>' + ic("lixo", 16) + " Excluir</button>") +
+      '<div class="afp-dlg-fa"><button class="afp-ghost" data-close>Cancelar</button><button class="afp-btn" data-ok>' + ic("ok", 18) + " Salvar farmácia</button></div>");
+    var g = function (id) { return d.querySelector("#" + id); };
+    d.addEventListener("input", function (e) { e.target.classList && e.target.classList.remove("afp-bad"); });
+    d.querySelector("[data-ok]").addEventListener("click", function () {
+      var v = { nome: g("fa-nome").value.trim(), email: g("fa-mail").value.trim(), whatsapp: soDig(g("fa-zap").value), cidade: g("fa-cid").value.trim() };
+      var regras = [["fa-nome", v.nome.length >= 2, "Informe o nome."], ["fa-mail", emailOk(v.email), "Informe um e-mail válido."], ["fa-zap", !v.whatsapp || v.whatsapp.length >= 10, "WhatsApp incompleto (com DDD)."]];
+      var ruim = regras.filter(function (r) { return !r[1]; }); ruim.forEach(function (r) { g(r[0]).classList.add("afp-bad"); });
+      if (ruim.length) { var m = g("fa-msg"); m.className = "afp-msg on"; m.textContent = ruim.map(function (r) { return r[2]; }).join(" "); return; }
+      Object.assign(f, v);
+      var l = farmacias(), i = l.map(function (x) { return x.id; }).indexOf(f.id); if (i > -1) l[i] = f; else l.push(f);
+      salvarFarm(); d.fechar(); toast(novo ? "Farmácia cadastrada" : "Farmácia atualizada"); if (depois) depois(f); else render();
+    });
+    var del = d.querySelector("[data-del]"); if (del) del.addEventListener("click", function () {
+      if (!confirm("Excluir " + f.nome + "?")) return;
+      S.farm = farmacias().filter(function (x) { return x.id !== f.id; }); if (S.farmId === f.id) S.farmId = ""; salvarFarm(); d.fechar(); render();
+    });
+    g("fa-nome").focus();
+  }
+  function viewFarmacias(v) {
+    var l = farmacias();
+    v.innerHTML = head("Farmácias *parceiras*", "As farmácias para onde você envia receitas. Ao concluir a prescrição, você escolhe se envia e para qual.",
+        '<button class="afp-btn" data-nova>' + ic("mais", 18) + " Nova farmácia</button>") +
+      (l.length ? '<div class="afp-plist">' + l.map(function (f) {
+        return '<article class="afp-pcard"><div class="afp-pcard-h"><span class="afp-navic">' + ic("loja", 20) + "</span>" +
+          '<div class="afp-pcard-id"><b>' + esc(f.nome) + "</b><small>" + esc([f.email, telFmt(f.whatsapp)].filter(Boolean).join(" · ")) + "</small>" + (f.cidade ? "<small>" + esc(f.cidade) + "</small>" : "") + "</div>" +
+          '<div class="afp-pcard-a"><button class="afp-ghost" data-edf="' + f.id + '">' + ic("editar", 16) + " Editar</button></div></div></article>";
+      }).join("") + "</div>"
+        : '<div class="afp-emptybox">' + ic("loja", 34) + "<b>Nenhuma farmácia cadastrada</b><p>Cadastre o e-mail (e, se quiser, o WhatsApp) das farmácias com quem você trabalha para enviar a receita direto ao concluir.</p></div>") +
+      '<p class="afp-hint">' + ic("escudo", 14) + "Por regra sanitária, a receita não pode indicar farmácia. Por isso ela não aparece no papel: só no envio, por sua escolha.</p>";
+    v.querySelector("[data-nova]").addEventListener("click", function () { formFarmacia(null); });
+    v.querySelectorAll("[data-edf]").forEach(function (b) { b.addEventListener("click", function () { formFarmacia(farmacias().filter(function (x) { return x.id === b.getAttribute("data-edf"); })[0]); }); });
+  }
+
+  /* ---------- envio (e-mail / WhatsApp) ---------- */
+  function receitaTexto() {
+    var c = S.cfg, p = pacAtual(), L = [];
+    L.push("RECEITA — " + c.nome + (c.registro ? " · " + c.registro : "") + (c.especialidade ? " · " + c.especialidade : ""));
+    L.push("Paciente: " + (S.paciente || (p && p.nome) || "") + "   Data: " + hoje()); L.push("");
+    S.rx.forEach(function (f, i) {
+      L.push((i + 1) + ". " + f.nome + (f.forma ? " — " + f.forma : "") + (viaLabel(f) ? " (" + viaLabel(f) + ")" : ""));
+      (f.componentes || []).forEach(function (x) { L.push("   " + x.ativo + "  " + x.dose); });
+      if (f.quantidade) L.push("   " + f.quantidade);
+      if (f.posologia) L.push("   Posologia: " + f.posologia);
+      L.push("");
+    });
+    if (c.rodape) L.push(c.rodape.replace(/\n/g, " · "));
+    return L.join("\n");
+  }
+  function abrirEmail(para, assunto, corpo) { location.href = "mailto:" + encodeURIComponent(para) + "?subject=" + encodeURIComponent(assunto) + "&body=" + encodeURIComponent(corpo); }
+  function abrirZap(tel, texto) { var d = soDig(tel); if (d.length <= 11) d = "55" + d; window.open("https://wa.me/" + d + "?text=" + encodeURIComponent(texto), "_blank", "noopener"); }
+  function painelEnvio() {
+    var fs = farmacias(), p = pacAtual(), f = fs.filter(function (x) { return x.id === S.farmId; })[0];
+    return '<section class="afp-panel" id="afp-envio"><h3>' + ic("loja", 16) + " Concluir e enviar</h3>" +
+      '<p class="afp-fg">Para a farmácia</p>' +
+      (fs.length ? '<select class="afp-in" id="afp-farmsel"><option value="">Não enviar para farmácia</option>' + fs.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === S.farmId ? " selected" : "") + ">" + esc(x.nome) + "</option>"; }).join("") + "</select>" +
+        (f ? '<div class="afp-envbt"><button class="afp-ghost" data-env="farm-mail">' + ic("upload", 16) + " Enviar por e-mail</button>" + (f.whatsapp ? '<button class="afp-ghost" data-env="farm-zap">' + ic("upload", 16) + " WhatsApp</button>" : "") + "</div>" : "")
+        : '<p class="afp-hint">Nenhuma farmácia parceira cadastrada.</p>') +
+      '<button class="afp-link" data-novafarm>' + ic("mais", 16) + " Cadastrar farmácia parceira</button>" +
+      '<p class="afp-fg">Para o paciente</p>' +
+      (p && (p.email || p.telefone) ? '<div class="afp-envbt">' + (p.email ? '<button class="afp-ghost" data-env="pac-mail">' + ic("upload", 16) + " E-mail do paciente</button>" : "") +
+          (p.telefone ? '<button class="afp-ghost" data-env="pac-zap">' + ic("upload", 16) + " WhatsApp do paciente</button>" : "") + "</div>"
+        : '<p class="afp-hint">' + (p ? "Cadastre e-mail ou telefone do paciente para enviar a receita a ele." : "Escolha um paciente cadastrado para enviar a receita a ele.") + "</p>") +
+      '<p class="afp-hint">' + ic("escudo", 14) + "O envio abre o seu e-mail ou WhatsApp com a receita escrita na mensagem. Para mandar o PDF, use “Imprimir / salvar PDF” e anexe o arquivo.</p></section>";
+  }
+  function wireEnvio(v) {
+    var s = v.querySelector("#afp-farmsel"); if (s) s.addEventListener("change", function () { S.farmId = s.value; render(); });
+    var nf = v.querySelector("[data-novafarm]"); if (nf) nf.addEventListener("click", function () { formFarmacia(null, function (f) { S.farmId = f.id; render(); }); });
+    v.querySelectorAll("[data-env]").forEach(function (b) { b.addEventListener("click", function () {
+      if (!(S.paciente || "").trim()) { var pi = v.querySelector("#afp-pac"); if (pi) { pi.classList.add("afp-bad"); pi.focus(); } toast("Informe o paciente antes de enviar"); return; }
+      var k = b.getAttribute("data-env"), f = farmacias().filter(function (x) { return x.id === S.farmId; })[0], p = pacAtual(), txt = receitaTexto();
+      var assunto = "Receita — " + S.paciente + " — " + hoje();
+      if (k === "farm-mail") { abrirEmail(f.email, assunto, "Olá, segue a receita de " + S.paciente + " para orçamento e manipulação.\n\n" + txt); registrarReceita("e-mail p/ " + f.nome); }
+      if (k === "farm-zap") { abrirZap(f.whatsapp, "Olá, segue a receita de " + S.paciente + " para orçamento e manipulação.\n\n" + txt); registrarReceita("WhatsApp p/ " + f.nome); }
+      if (k === "pac-mail") { abrirEmail(p.email, "Sua receita — " + hoje(), "Olá, " + p.nome.split(" ")[0] + ". Segue a sua receita.\n\n" + txt); registrarReceita("e-mail p/ paciente"); }
+      if (k === "pac-zap") { abrirZap(p.telefone, "Olá, " + p.nome.split(" ")[0] + ". Segue a sua receita.\n\n" + txt); registrarReceita("WhatsApp p/ paciente"); }
+    }); });
+  }
+  function painelPaciente() {
+    var p = pacAtual(), l = pacientes().slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); });
+    return '<section class="afp-panel"><label class="afp-full"><span>Paciente</span><input class="afp-in" id="afp-pac" list="afp-pacl" autocomplete="off" placeholder="' + (l.length ? "Digite para buscar no cadastro" : "Nome do paciente") + '" value="' + esc(S.paciente) + '"></label>' +
+      '<datalist id="afp-pacl">' + l.map(function (x) { return '<option value="' + esc(x.nome) + '">' + esc(x.cpf ? "CPF " + cpfFmt(x.cpf) : "") + "</option>"; }).join("") + "</datalist>" +
+      (p ? '<div class="afp-pacsel">' + ic("ok", 16) + "<span><b>" + esc(p.nome) + "</b><small>" + esc([p.cpf ? "CPF " + cpfFmt(p.cpf) : "", telFmt(p.telefone), p.email].filter(Boolean).join(" · ") || "Cadastro sem contato") + "</small></span>" +
+          '<button class="afp-icbtn" data-edpac aria-label="Editar paciente">' + ic("editar", 16) + "</button></div>"
+        : '<button class="afp-link" data-novopac>' + ic("mais", 16) + (S.paciente ? " Cadastrar “" + esc(S.paciente) + "” como paciente" : " Cadastrar novo paciente") + "</button>") +
+      '<p class="afp-hint">' + ic("escudo", 14) + "Pacientes cadastrados ficam só neste navegador. A receita emitida entra no histórico do paciente.</p></section>";
+  }
+  function wirePaciente(v, aoMudar) {
+    var pac = v.querySelector("#afp-pac");
+    pac.addEventListener("input", function () {
+      S.paciente = pac.value; pac.classList.remove("afp-bad");
+      var achou = pacientes().filter(function (x) { return norm(x.nome) === norm(pac.value.trim()); })[0], antes = S.pacId;
+      S.pacId = achou ? achou.id : null;
+      if (antes !== S.pacId) { render(); var n = S.el.querySelector("#afp-pac"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } } else {
+        var nb = v.querySelector("[data-novopac]"); if (nb) nb.innerHTML = ic("mais", 16) + (S.paciente.trim() ? " Cadastrar “" + esc(S.paciente.trim()) + "” como paciente" : " Cadastrar novo paciente");
+        aoMudar();
+      }
+    });
+    var np = v.querySelector("[data-novopac]"); if (np) np.addEventListener("click", function () {
+      formPaciente(S.paciente ? { id: novoId(), nome: S.paciente, cpf: "", nascimento: "", telefone: "", email: "", obs: "", historico: [] } : null, function (p) { S.pacId = p.id; S.paciente = p.nome; render(); });
+    });
+    var ep = v.querySelector("[data-edpac]"); if (ep) ep.addEventListener("click", function () { formPaciente(pacAtual(), function (p) { S.paciente = p.nome; render(); }); });
+  }
+
+  /* ---------- carrinho de prescrição (fica à vista enquanto escolhe fórmulas) ---------- */
+  function carrinho() {
+    var old = document.querySelector(".afp-rxbar"); if (old) old.remove();
+    if (!S.rx.length || ["formulas", "minhas", "laminas"].indexOf(S.tab) < 0) return;
+    var b = document.createElement("div"); b.className = "afp-rxbar" + (S.cartOpen ? " on" : "");
+    b.innerHTML = (S.cartOpen ? '<ul class="afp-rxbar-l">' + S.rx.map(function (f, i) {
+        return '<li><span><b>' + esc(f.nome) + "</b><small>" + esc([f.forma, viaLabel(f)].filter(Boolean).join(" · ")) + '</small></span><button class="afp-icbtn" data-crm="' + i + '" aria-label="Remover">' + ic("x", 15) + "</button></li>";
+      }).join("") + "</ul>" : "") +
+      '<div class="afp-rxbar-h"><button class="afp-rxbar-t" data-ctog aria-expanded="' + !!S.cartOpen + '">' + ic("prescrever", 18) + "<span><b>Receita" + (S.paciente ? " de " + esc(S.paciente.split(" ")[0]) : "") + "</b><small>" + S.rx.length + (S.rx.length > 1 ? " fórmulas" : " fórmula") + "</small></span></button>" +
+      '<button class="afp-btn" data-cgo>Ver receita →</button></div>';
+    document.body.appendChild(b);
+    b.querySelector("[data-ctog]").addEventListener("click", function () { S.cartOpen = !S.cartOpen; carrinho(); });
+    b.querySelector("[data-cgo]").addEventListener("click", function () { S.cartOpen = false; irPara("prescrever"); });
+    b.querySelectorAll("[data-crm]").forEach(function (x) { x.addEventListener("click", function () { S.rx.splice(+x.getAttribute("data-crm"), 1); saveRx(); render(); }); });
+  }
+
+  /* ---------- lâminas: baixar (PDF) e ampliar ---------- */
+  function baixarLamina(l, btn) {
+    var n = l.paginas || 0; if (!n) return;
+    btn.disabled = true; var txt = btn.innerHTML; btn.innerHTML = "Preparando…";
+    Promise.all(Array.from({ length: n }, function (_, i) { return pagina(l.n, i + 1); })).then(function (urls) {
+      var w = document.getElementById("afp-print-root") || document.body.appendChild(Object.assign(document.createElement("div"), { id: "afp-print-root" }));
+      w.innerHTML = '<div class="afp-lamprint">' + urls.map(function (u) { return '<img alt="" src="' + u + '">'; }).join("") + "</div>";
+      var imgs = w.querySelectorAll("img");
+      return Promise.all(Array.prototype.map.call(imgs, function (im) { return im.complete ? 0 : new Promise(function (r) { im.onload = im.onerror = r; }); }));
+    }).then(function () {
+      var t = document.title; document.title = "Lâmina técnica — " + l.titulo;
+      imprimir(); setTimeout(function () { document.title = t; }, 1600);
+    }).catch(function () { toast("Não foi possível baixar agora"); }).then(function () { btn.disabled = false; btn.innerHTML = txt; });
+  }
+  function ampliar(src, alt) {
+    var z = 1, d = modal(alt, '<div class="afp-zoom"><img alt="' + esc(alt) + '" src="' + src + '"></div>',
+      '<span></span><div class="afp-dlg-fa"><button class="afp-ghost" data-z="-1" aria-label="Diminuir">−</button><button class="afp-ghost" data-z="0">100%</button><button class="afp-ghost" data-z="1" aria-label="Aumentar">+</button></div>', 1100);
+    var im = d.querySelector(".afp-zoom img"), lb = d.querySelector('[data-z="0"]');
+    d.querySelectorAll("[data-z]").forEach(function (b) { b.addEventListener("click", function () {
+      var k = +b.getAttribute("data-z"); z = k ? Math.max(1, Math.min(3, z + k * .5)) : 1; im.style.width = z * 100 + "%"; lb.textContent = Math.round(z * 100) + "%";
+    }); });
   }
 
   window.AFPresc = { mount: mount };

@@ -1,3 +1,4 @@
+@font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:400 800;font-display:swap;src:url(fonts/plus-jakarta-sans-latin.woff2) format("woff2")}
 /* Sistema do prescritor — v3 · tokens A Fórmula (Avenir, teal #4f46e5, tinta #0f172a) */
 #afp-root,.afp-modal,.afp-toast{--t:#4f46e5;--t-d:#4338ca;--t-ink:#3730a3;--t-50:#eef2ff;--t-100:#e0e7ff;--ink:#0f172a;--ink-2:#334155;--mute:#64748b;--line:#e2e8f0;--line-2:#f1f5f9;--bg:#f8fafc;--card:#fff;--r:16px;--sh:0 1px 2px rgba(15,23,42,.04),0 8px 24px -16px rgba(15,23,42,.18);font-family:"Plus Jakarta Sans",system-ui,sans-serif;color:var(--ink)}
 .afp-ic{flex:none}

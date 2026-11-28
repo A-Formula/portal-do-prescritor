@@ -57,3 +57,81 @@ html,body{overflow-x:clip}
 #afp-root .afp-vh h2 em,#afp-root h2 em{font-style:normal;font-weight:800;background:linear-gradient(90deg,#4f46e5,#7c3aed);-webkit-background-clip:text;background-clip:text;color:transparent}
 
 .pp-mark-img{height:36px;width:auto;display:block}
+
+/* ===== ajustes 27/11: pacientes, farmácias, envio, carrinho, lâminas, posologia (mobile-first) ===== */
+.afp-hbts{display:flex;flex-wrap:wrap;gap:10px}
+.afp-dlg-t{margin:0;font-size:19px;font-weight:800;letter-spacing:-.01em}
+.afp-plist{display:flex;flex-direction:column;gap:10px}
+.afp-pcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.afp-pcard.on{border-color:#c7d2fe}
+.afp-pcard-h{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center}
+.afp-pcard-h .afp-av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:14px}
+.afp-pcard-id{display:flex;flex-direction:column;gap:2px;min-width:0}
+.afp-pcard-id b{font-size:15.5px;overflow-wrap:anywhere}.afp-pcard-id small{font-size:12.5px;color:var(--mute);overflow-wrap:anywhere}
+.afp-pcard-a{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.afp-pcard-a .afp-btn{height:40px;padding:0 16px;font-size:14px;margin-left:auto}
+.afp-hist{margin-top:12px;border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:8px}
+.afp-hist-it{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:12px;background:var(--bg)}
+.afp-hist-it>div{display:flex;flex-direction:column;gap:2px}.afp-hist-it small{font-size:12.5px;color:var(--ink-2)}
+.afp-hist-it .afp-env{color:var(--mute)}.afp-hist-it .afp-ghost{align-self:flex-start}
+.afp-pacsel{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:var(--p-50);color:var(--p-d)}
+.afp-pacsel span{flex:1;min-width:0;display:flex;flex-direction:column}.afp-pacsel b{color:var(--ink);font-size:14.5px}.afp-pacsel small{font-size:12.5px;color:var(--ink-2);overflow-wrap:anywhere}
+.afp-envbt{display:flex;flex-wrap:wrap;gap:8px}
+#afp-envio .afp-fg{margin:4px 0 0}
+.afp-panel>.afp-link{align-self:flex-start}
+#afp-forma.afp-bad{outline:2px solid #e0603f;outline-offset:4px;border-radius:14px}
+.afp-viahint{margin:4px 0 0}
+.afp-pos{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:-4px}
+.afp-pos-l{width:100%;font-size:12px;font-weight:800;letter-spacing:.04em;color:var(--mute)}
+.afp-poschip{font:inherit;font-size:12.5px;font-weight:600;color:var(--ink-2);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer;text-align:left}
+.afp-poschip:hover{border-color:#c7d2fe;color:var(--p-d)}
+span.afp-poschip.minha{display:inline-flex;align-items:center;gap:2px;padding:0 4px 0 0;background:var(--p-50);border-color:#e0e7ff}
+span.afp-poschip.minha>button:first-child{font:inherit;color:var(--p-d);background:none;border:0;padding:7px 4px 7px 12px;cursor:pointer;text-align:left}
+.afp-posx{background:none;border:0;color:var(--mute);cursor:pointer;display:grid;place-items:center;width:22px;height:22px;border-radius:50%}
+.afp-posx:hover{background:#fff;color:#b91c1c}
+.afp-pos .afp-link{font-size:13px}
+.afp-drop{display:flex;flex-direction:column;align-items:center;gap:6px;padding:24px 16px;border:1.5px dashed #c7d2fe;border-radius:16px;background:var(--p-50);color:var(--p-d);cursor:pointer;text-align:center}
+.afp-drop input{position:absolute;opacity:0;width:1px;height:1px}
+.afp-drop small{color:var(--mute);font-size:12.5px}
+.afp-drop:focus-within{box-shadow:0 0 0 3px rgba(79,70,229,.25)}
+.afp-map{display:flex;flex-direction:column;gap:8px}
+.afp-map-r{display:grid;grid-template-columns:1fr;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:12px}
+.afp-map-r>div{display:flex;flex-direction:column;min-width:0}.afp-map-r small{color:var(--mute);font-size:12px;overflow-wrap:anywhere}
+/* carrinho flutuante */
+.afp-rxbar{position:fixed;z-index:60;left:16px;right:16px;bottom:16px;background:#fff;border:1px solid #c7d2fe;border-radius:18px;box-shadow:0 20px 50px -20px rgba(30,27,75,.45);font-family:"Plus Jakarta Sans",system-ui,sans-serif;color:var(--ink);overflow:hidden;animation:afpPop .22s ease}
+.afp-rxbar-h{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 14px}
+.afp-rxbar-t{flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:none;border:0;font:inherit;color:var(--p-d);cursor:pointer;text-align:left;padding:0}
+.afp-rxbar-t span{display:flex;flex-direction:column;min-width:0}.afp-rxbar-t b{color:var(--ink);font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.afp-rxbar-t small{font-size:12.5px;color:var(--mute)}
+.afp-rxbar .afp-btn{height:42px;padding:0 16px;font-size:14px;flex:none;background:var(--p);color:#fff;border:0;border-radius:999px;font-weight:800;cursor:pointer}
+.afp-rxbar-l{list-style:none;margin:0;padding:8px;max-height:min(50vh,360px);overflow:auto;border-bottom:1px solid var(--line)}
+.afp-rxbar-l li{display:flex;align-items:center;gap:8px;padding:8px 6px 8px 10px;border-radius:10px}
+.afp-rxbar-l li:hover{background:var(--bg)}
+.afp-rxbar-l span{flex:1;min-width:0;display:flex;flex-direction:column}.afp-rxbar-l b{font-size:14px}.afp-rxbar-l small{font-size:12px;color:var(--mute)}
+.afp-shell{padding-bottom:84px}
+/* lâminas: ampliar página */
+.afp-page{position:relative;cursor:zoom-in}
+.afp-zbt{position:absolute;right:10px;bottom:10px;display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:12.5px;font-weight:700;color:#fff;background:rgba(15,23,42,.72);border:0;border-radius:999px;padding:7px 12px;pointer-events:none}
+.afp-zoom{overflow:auto;max-height:70vh;border-radius:12px;background:var(--bg)}
+.afp-zoom img{display:block;width:100%;max-width:none;transition:width .15s}
+@media print{
+  #afp-print-root .afp-lamprint img{display:block;width:210mm;height:297mm;object-fit:contain;break-after:page;page-break-after:always}
+  #afp-print-root .afp-lamprint img:last-child{break-after:auto;page-break-after:auto}
+}
+@media(min-width:640px){
+  .afp-pcard-h{grid-template-columns:auto minmax(0,1fr) auto}
+  .afp-pcard-a{grid-column:auto;justify-content:flex-end}
+  .afp-pcard-a .afp-btn{margin-left:0}
+  .afp-hist-it{flex-direction:row;align-items:center;justify-content:space-between}
+  .afp-map-r{grid-template-columns:minmax(0,1fr) 200px;align-items:center}
+  .afp-rxbar{left:auto;right:24px;bottom:24px;width:400px}
+}
+@media(min-width:1024px){.afp-shell{padding-bottom:0}}
+.afp-copy{align-self:stretch;justify-content:center}
+/* alvos de toque ≥ 40 px no celular (auditoria 27/11) */
+@media(max-width:767px){
+  #afp-root .afp-tagchip,.afp-modal .afp-tagchip,.afp-poschip,#afp-root .afp-link,.afp-modal .afp-link{min-height:40px}
+  span.afp-poschip.minha>button:first-child{min-height:38px}
+  .afp-posx{width:34px;height:34px}
+  .afp-modal [data-addrow]{min-height:40px}
+  .afp-zbt{min-height:40px;padding-top:0;padding-bottom:0}
+}
